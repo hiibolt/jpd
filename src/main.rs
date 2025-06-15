@@ -17,33 +17,61 @@ struct AppState {
 fn pull_down (
     state: Arc<AtomicBool>,
 ) {
-    let interval = Duration::from_millis(100);
-    while state.load(Ordering::SeqCst) {
-        unsafe {
-            let mut move_input = INPUT {
-                type_: INPUT_MOUSE,
-                u: mem::zeroed(),
-            };
-            *move_input.u.mi_mut() = MOUSEINPUT {
-                dx: 0,
-                dy: 3,
-                mouseData: 0,
-                dwFlags: MOUSEEVENTF_MOVE,
-                time: 0,
-                dwExtraInfo: 0,
-            };
+    let rpm = 860u128;
+    let seconds_in_minute = 60u128;
+    let nanoseconds_in_second = 1_000_000_000u128;
+    let nanoseconds_per_move = (nanoseconds_in_second * seconds_in_minute) / rpm;
+    let interval = Duration::from_nanos(nanoseconds_per_move as u64);
 
-            let inputs = [move_input];
-            SendInput(
-                inputs.len() as u32,
-                inputs.as_ptr() as *mut _,
-                mem::size_of::<INPUT>() as i32
-            );
+    let dx_total = -4.5;
+    let dy_total = 137.5;
+    let splits = 10;
+
+    while state.load(Ordering::SeqCst) {
+
+        let mut dx_accum = 0.0;
+        let mut dy_accum = 0.0;
+
+        let dx_step = dx_total / splits as f32;
+        let dy_step = dy_total / splits as f32;
+
+        for _ in 0..splits {
+            dx_accum += dx_step;
+            dy_accum += dy_step;
+
+            // Take integer part to send via SendInput
+            let dx_send = dx_accum.round() as i32;
+            let dy_send = dy_accum.round() as i32;
+
+            // Subtract sent portion so remainder accumulates
+            dx_accum -= dx_send as f32;
+            dy_accum -= dy_send as f32;
+
+            unsafe {
+                let mut move_input = INPUT {
+                    type_: INPUT_MOUSE,
+                    u: mem::zeroed(),
+                };
+                *move_input.u.mi_mut() = MOUSEINPUT {
+                    dx: dx_send,
+                    dy: dy_send,
+                    mouseData: 0,
+                    dwFlags: MOUSEEVENTF_MOVE,
+                    time: 0,
+                    dwExtraInfo: 0,
+                };
+
+                SendInput(
+                    1,
+                    &mut move_input as *mut _,
+                    std::mem::size_of::<INPUT>() as i32,
+                );
+            }
+
+            thread::sleep(interval / splits);
         }
 
-
         println!(":3 -");
-        thread::sleep(interval);
     }
 }
 unsafe extern "system" fn wnd_proc(
