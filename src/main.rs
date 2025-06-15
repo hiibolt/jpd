@@ -19,6 +19,29 @@ fn pull_down (
 ) {
     let interval = Duration::from_millis(100);
     while state.load(Ordering::SeqCst) {
+        unsafe {
+            let mut move_input = INPUT {
+                type_: INPUT_MOUSE,
+                u: mem::zeroed(),
+            };
+            *move_input.u.mi_mut() = MOUSEINPUT {
+                dx: 0,
+                dy: 3,
+                mouseData: 0,
+                dwFlags: MOUSEEVENTF_MOVE,
+                time: 0,
+                dwExtraInfo: 0,
+            };
+
+            let inputs = [move_input];
+            SendInput(
+                inputs.len() as u32,
+                inputs.as_ptr() as *mut _,
+                mem::size_of::<INPUT>() as i32
+            );
+        }
+
+
         println!(":3 -");
         thread::sleep(interval);
     }
