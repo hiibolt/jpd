@@ -9,9 +9,34 @@ use winapi::shared::windef::*;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::winuser::*;
 
+
+const WEAPON: &'static str = "417";
+
 #[derive(Clone)]
 struct AppState {
     hold_active: Arc<AtomicBool>,
+    weapon: Arc<WeaponType>,
+}
+#[derive(Clone)]
+struct SingleFireConfig {
+    trigger_delay_ms: u32,
+    dx: f32,
+    dy: f32,
+    autofire: bool,
+}
+#[derive(Clone)]
+struct FullAutoStandardConfig {
+    rpm: u128,
+    first_shot_scale: f32,
+    exponential_factor: f32,
+    dx: f32,
+    dy: f32,
+}
+
+#[derive(Clone)]
+enum WeaponType {
+    SingleFire(SingleFireConfig),
+    FullAutoStandard(FullAutoStandardConfig),
 }
 
 fn move_down (
@@ -67,31 +92,69 @@ fn move_down (
 }
 fn handle_hold_lmb (
     state: Arc<AtomicBool>,
+    weapon: Arc<WeaponType>,
 ) {
-    let rpm = 860u128;
-    let seconds_in_minute = 60u128;
-    let nanoseconds_in_second = 1_000_000_000u128;
-    let nanoseconds_per_move = (nanoseconds_in_second * seconds_in_minute) / rpm;
-    let interval = Duration::from_nanos(nanoseconds_per_move as u64);
+    match &*weapon {
+        WeaponType::FullAutoStandard(config) => {
+            let seconds_in_minute = 60u128;
+            let nanoseconds_in_second = 1_000_000_000u128;
+            let nanoseconds_per_move = (nanoseconds_in_second * seconds_in_minute) / config.rpm;
+            let interval = Duration::from_nanos(nanoseconds_per_move as u64);
 
-    let dx_total = -5.0f32;
-    let dy_total = 129.5f32;
-    let first_shot_scale = 1.23f32;
-    let exponential_factor = 1.007f32;
-    let splits = 10;
+            // Handle the first shot with scaled movement
+            let first_shot_scale = config.first_shot_scale;
+            let first_dx = config.dx * first_shot_scale;
+            let first_dy = config.dy * first_shot_scale;
+            move_down(first_dx, first_dy, 3, interval, true);
 
-    // Handle the first shot with scaled movement, waiting for 10ms
-    let first_dx = dx_total * first_shot_scale;
-    let first_dy = dy_total * first_shot_scale;
-    move_down(first_dx, first_dy, 3, interval, true);
+            let mut iteration = 0;
+            while state.load(Ordering::SeqCst) {
+                let dy_total = config.dy * config.exponential_factor.powf(iteration as f32);
+                move_down(config.dx, dy_total, 10, interval, false);
 
-    let mut iteration = 0;
-    while state.load(Ordering::SeqCst) {
-        let dy_total = dy_total * exponential_factor.powf(iteration as f32);
-        move_down(dx_total, dy_total, splits, interval, false);
+                println!(":3 -");
+                iteration += 1;
+            }
+        }
+        WeaponType::SingleFire(config) => {
+            let dx = config.dx;
+            let dy = config.dy;
+            let trigger_delay = Duration::from_millis(config.trigger_delay_ms as u64);
 
-        println!(":3 -");
-        iteration += 1;
+            // Handle the first shot
+            move_down(dx, dy, 3, trigger_delay, true);
+
+            if !config.autofire { return; }
+            
+            while state.load(Ordering::SeqCst) {
+                // Pull the trigger
+                unsafe {
+                    let mut input = INPUT {
+                        type_: INPUT_MOUSE,
+                        u: mem::zeroed(),
+                    };
+                    *input.u.mi_mut() = MOUSEINPUT {
+                        dx: 0,
+                        dy: 0,
+                        mouseData: 0,
+                        dwFlags: MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_LEFTUP,
+                        time: 0,
+                        dwExtraInfo: 0,
+                    };
+
+                    SendInput(
+                        1,
+                        &mut input as *mut _,
+                        mem::size_of::<INPUT>() as i32,
+                    );
+                }
+
+                // Move down for the next shot
+                move_down(dx, dy, 10, trigger_delay, false);
+                
+                println!(":3 -");
+            }
+        }
     }
 }
 unsafe extern "system" fn wnd_proc(
@@ -155,8 +218,9 @@ unsafe extern "system" fn wnd_proc(
                         if !state.hold_active.load(Ordering::SeqCst) {
                             state.hold_active.store(true, Ordering::SeqCst);
                             let hold_clone = state.hold_active.clone();
+                            let weapon_clone = state.weapon.clone();
 
-                            thread::spawn(|| { handle_hold_lmb(hold_clone) });
+                            thread::spawn(|| { handle_hold_lmb(hold_clone, weapon_clone) });
                         }
                     }
                     if flags & RI_MOUSE_LEFT_BUTTON_UP != 0 {
@@ -183,6 +247,25 @@ fn to_wstring(s: &str) -> Vec<u16> {
     std::ffi::OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
 }
 fn main() {
+    let weapon_r4_c = WeaponType::FullAutoStandard(FullAutoStandardConfig {
+        rpm: 860,
+        first_shot_scale: 1.23,
+        exponential_factor: 1.007,
+        dx: -5.0,
+        dy: 129.5,
+    });
+    let weapon_417 = WeaponType::SingleFire(SingleFireConfig {
+        trigger_delay_ms: 10,
+        dx: -5.0,
+        dy: 129.5,
+        autofire: true,
+    });
+    let weapon = match WEAPON {
+        "R4-C" => weapon_r4_c,
+        "417" => weapon_417,
+        _ => panic!("Unsupported weapon"),
+    };
+
     unsafe {
         let hinstance = GetModuleHandleW(ptr::null());
         let class_name = to_wstring("RawInputWnd");
@@ -198,6 +281,7 @@ fn main() {
 
         let state = AppState {
             hold_active: Arc::new(AtomicBool::new(false)),
+            weapon: Arc::new(weapon),
         };
         let state_ptr = Box::into_raw(Box::new(state)) as *mut _;
 
