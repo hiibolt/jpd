@@ -35,6 +35,7 @@ struct SingleFireConfig {
     release_delay_ms: u32,
     dx: f32,
     dy: f32,
+    mag_size: u32,
     autofire: bool,
 }
 #[derive(Clone)]
@@ -44,6 +45,7 @@ struct FullAutoStandardConfig {
     exponential_factor: f32,
     dx: f32,
     dy: f32,
+    mag_size: u32,
 }
 
 #[derive(Clone)]
@@ -139,8 +141,9 @@ fn handle_hold_lmb (
             // If the weapon is not found, default to the first one
             &weapons.values().next().expect("No weapons available")
         });
-        println!("Controlling weapon: {}", weapon_id);
 
+        println!("Controlling weapon: {}", weapon_id);
+        let mut rounds_fired = 1;
         match weapon {
             Weapon::FullAutoStandard(config) => {
                 let seconds_in_minute = 60u128;
@@ -169,6 +172,12 @@ fn handle_hold_lmb (
                         println!("Weapon changed while firing, exiting hold loop.");
                         continue 'outer;
                     }
+
+                    rounds_fired += 1;
+                    if rounds_fired > config.mag_size {
+                        println!("Reached mag size limit, exiting hold loop.");
+                        break 'outer;
+                    }
                 }
             }
             Weapon::SingleFire(config) => {
@@ -176,7 +185,7 @@ fn handle_hold_lmb (
                 let recoil_completion = Duration::from_millis(config.recoil_completion_ms as u64);
                 let release_delay = Duration::from_millis(config.release_delay_ms as u64);
 
-                'inner: while left_hold_active.load(Ordering::SeqCst) && right_hold_active.load(Ordering::SeqCst) {
+                'inner: while left_hold_active.load(Ordering::SeqCst) && !(global_config.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) {
                     // Move down for the next shot
                     move_down(
                         config.dx,
@@ -239,6 +248,12 @@ fn handle_hold_lmb (
                         continue 'outer;
                     }
                     println!("[SF] :3 -");
+
+                    rounds_fired += 1;
+                    if rounds_fired > config.mag_size {
+                        println!("Reached mag size limit, exiting hold loop.");
+                        break 'outer;
+                    }
                 }
             }
         }
@@ -385,21 +400,24 @@ fn main() {
             exponential_factor: 1.007,
             dx: -5.0,
             dy: 129.5,
+            mag_size: 26,
         })),
         (String::from("417"), Weapon::SingleFire(SingleFireConfig {
-            trigger_delay_ms: 80,
+            trigger_delay_ms: 90,
             recoil_completion_ms: 10,
             release_delay_ms: 25,
-            dx: -1.0,
-            dy: 42.5,
+            dx: 0.0,
+            dy: 46.5,
+            mag_size: 21,
             autofire: true,
         })),
         (String::from("P12"), Weapon::SingleFire(SingleFireConfig {
-            trigger_delay_ms: 60,
+            trigger_delay_ms: 80,
             recoil_completion_ms: 10,
             release_delay_ms: 25,
             dx: 0.5,
-            dy: 17.5,
+            dy: 22.0,
+            mag_size: 17,
             autofire: true,
         })),
     ]);
