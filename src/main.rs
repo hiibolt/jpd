@@ -9,7 +9,6 @@ use winapi::shared::windef::*;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::winuser::*;
 
-
 const WEAPON: &'static str = "417";
 
 #[derive(Clone)]
@@ -20,6 +19,8 @@ struct AppState {
 #[derive(Clone)]
 struct SingleFireConfig {
     trigger_delay_ms: u32,
+    recoil_completion_ms: u32,
+    release_delay_ms: u32,
     dx: f32,
     dy: f32,
     autofire: bool,
@@ -117,42 +118,63 @@ fn handle_hold_lmb (
             }
         }
         WeaponType::SingleFire(config) => {
-            let dx = config.dx;
-            let dy = config.dy;
             let trigger_delay = Duration::from_millis(config.trigger_delay_ms as u64);
+            let recoil_completion = Duration::from_millis(config.recoil_completion_ms as u64);
+            let release_delay = Duration::from_millis(config.release_delay_ms as u64);
 
-            // Handle the first shot
-            move_down(dx, dy, 3, trigger_delay, true);
-
-            if !config.autofire { return; }
-            
             while state.load(Ordering::SeqCst) {
+                // Move down for the next shot
+                move_down(
+                    config.dx,
+                    config.dy,
+                    10,
+                    recoil_completion,
+                    true
+                );
+
+                if !state.load(Ordering::SeqCst) || !config.autofire {
+                    break;
+                }
+
                 // Pull the trigger
                 unsafe {
+                    // "Click" (press 'm' on keyboard)
                     let mut input = INPUT {
-                        type_: INPUT_MOUSE,
+                        type_: INPUT_KEYBOARD,
                         u: mem::zeroed(),
                     };
-                    *input.u.mi_mut() = MOUSEINPUT {
-                        dx: 0,
-                        dy: 0,
-                        mouseData: 0,
-                        dwFlags: MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_LEFTUP,
+                    *input.u.ki_mut() = KEYBDINPUT {
+                        wVk: 0,
+                        wScan: 0x32, // 'M' key
+                        dwFlags: 0 | KEYEVENTF_SCANCODE,
                         time: 0,
                         dwExtraInfo: 0,
                     };
-
-                    SendInput(
-                        1,
-                        &mut input as *mut _,
-                        mem::size_of::<INPUT>() as i32,
-                    );
+                
+                    SendInput(1, &mut input, mem::size_of::<INPUT>() as i32);
                 }
 
-                // Move down for the next shot
-                move_down(dx, dy, 10, trigger_delay, false);
-                
-                println!(":3 -");
+                std::thread::sleep(release_delay);
+
+                // Release the trigger
+                unsafe {
+                    let mut input = INPUT {
+                        type_: INPUT_KEYBOARD,
+                        u: mem::zeroed(),
+                    };
+                    *input.u.ki_mut() = KEYBDINPUT {
+                        wVk: 0,
+                        wScan: 0x32, // 'M' key
+                        dwFlags: KEYEVENTF_KEYUP | KEYEVENTF_SCANCODE,
+                        time: 0,
+                        dwExtraInfo: 0,
+                    };
+                    SendInput(1, &mut input, mem::size_of::<INPUT>() as i32);
+                }
+
+                std::thread::sleep(trigger_delay);
+
+                println!("[SF] :3 -");
             }
         }
     }
@@ -255,9 +277,11 @@ fn main() {
         dy: 129.5,
     });
     let weapon_417 = WeaponType::SingleFire(SingleFireConfig {
-        trigger_delay_ms: 10,
-        dx: -5.0,
-        dy: 129.5,
+        trigger_delay_ms: 80,
+        recoil_completion_ms: 10,
+        release_delay_ms: 25,
+        dx: -1.0,
+        dy: 42.5,
         autofire: true,
     });
     let weapon = match WEAPON {
