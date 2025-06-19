@@ -14,28 +14,22 @@ struct AppState {
     hold_active: Arc<AtomicBool>,
 }
 
-fn pull_down (
-    state: Arc<AtomicBool>,
+fn move_down (
+    dx_total: f32,
+    dy_total: f32,
+    splits: u32,
+    total_interval: Duration,
+    wait_first: bool,
 ) {
-    let rpm = 860u128;
-    let seconds_in_minute = 60u128;
-    let nanoseconds_in_second = 1_000_000_000u128;
-    let nanoseconds_per_move = (nanoseconds_in_second * seconds_in_minute) / rpm;
-    let interval = Duration::from_nanos(nanoseconds_per_move as u64);
-
-    let dx_total = -4.5;
-    let dy_total = 137.5;
-    let splits = 10;
-
-    while state.load(Ordering::SeqCst) {
-
-        let mut dx_accum = 0.0;
+    let mut dx_accum = 0.0;
         let mut dy_accum = 0.0;
 
         let dx_step = dx_total / splits as f32;
         let dy_step = dy_total / splits as f32;
 
         for _ in 0..splits {
+            if wait_first { thread::sleep(total_interval / splits); }
+
             dx_accum += dx_step;
             dy_accum += dy_step;
 
@@ -67,11 +61,37 @@ fn pull_down (
                     std::mem::size_of::<INPUT>() as i32,
                 );
             }
-
-            thread::sleep(interval / splits);
+            
+            if !wait_first { thread::sleep(total_interval / splits); }
         }
+}
+fn handle_hold_lmb (
+    state: Arc<AtomicBool>,
+) {
+    let rpm = 860u128;
+    let seconds_in_minute = 60u128;
+    let nanoseconds_in_second = 1_000_000_000u128;
+    let nanoseconds_per_move = (nanoseconds_in_second * seconds_in_minute) / rpm;
+    let interval = Duration::from_nanos(nanoseconds_per_move as u64);
+
+    let dx_total = -5.0f32;
+    let dy_total = 129.5f32;
+    let first_shot_scale = 1.23f32;
+    let exponential_factor = 1.007f32;
+    let splits = 10;
+
+    // Handle the first shot with scaled movement, waiting for 10ms
+    let first_dx = dx_total * first_shot_scale;
+    let first_dy = dy_total * first_shot_scale;
+    move_down(first_dx, first_dy, 3, interval, true);
+
+    let mut iteration = 0;
+    while state.load(Ordering::SeqCst) {
+        let dy_total = dy_total * exponential_factor.powf(iteration as f32);
+        move_down(dx_total, dy_total, splits, interval, false);
 
         println!(":3 -");
+        iteration += 1;
     }
 }
 unsafe extern "system" fn wnd_proc(
@@ -136,7 +156,7 @@ unsafe extern "system" fn wnd_proc(
                             state.hold_active.store(true, Ordering::SeqCst);
                             let hold_clone = state.hold_active.clone();
 
-                            thread::spawn(|| { pull_down(hold_clone) });
+                            thread::spawn(|| { handle_hold_lmb(hold_clone) });
                         }
                     }
                     if flags & RI_MOUSE_LEFT_BUTTON_UP != 0 {
