@@ -25,4 +25,5 @@ serde_json = "1"
 winapi = { version = "0.3.9", features = ["windef", "winuser", "libloaderapi", "hidusage", "impl-default"] }
 tokio = { version = "1.45.1", features = ["full"] }
 window-vibrancy = "0.6.0"
+anyhow = "1.0.98"
 

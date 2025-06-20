@@ -1,15 +1,24 @@
 extern crate winapi;
 use std::collections::HashMap;
-use std::sync::atomic::AtomicUsize;
+use std::sync::{mpsc::{Sender, Receiver}, atomic::AtomicUsize};
 use std::{mem, ptr, thread, time::Duration};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use serde::Serialize;
+use tokio::sync::Mutex;
 use winapi::shared::hidusage::*;
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::winuser::*;
 
+#[derive(Serialize)]
+#[serde(tag = "event", content = "data")]
+pub enum AppEvent {
+    StartedShooting {
+        weapon_ind: usize
+    },
+    StoppedShooting
+}
 #[derive(Clone)]
 pub struct GlobalConfig {
     pub require_right_hold: bool,
@@ -23,6 +32,9 @@ pub struct Loadout {
 pub struct AppState {
     pub weapons: Arc<HashMap<String, Weapon>>,
     pub global_config: Arc<GlobalConfig>,
+
+    pub events_channel_sender: Arc<Sender<AppEvent>>,
+    pub events_channel_reciever: Arc<Mutex<Receiver<AppEvent>>>,
 
     pub left_hold_active: Arc<AtomicBool>,
     pub right_hold_active: Arc<AtomicBool>,
@@ -110,6 +122,8 @@ fn handle_hold_lmb (
     weapons: Arc<HashMap<String, Weapon>>,
     global_config: Arc<GlobalConfig>,
 
+    events_channel_sender: Arc<Sender<AppEvent>>,
+
     left_hold_active: Arc<AtomicBool>,
     right_hold_active: Arc<AtomicBool>,
     loadout: Arc<Loadout>,
@@ -130,6 +144,7 @@ fn handle_hold_lmb (
             continue 'outer;
         }
 
+
         let weapon_ind = current_index.load(Ordering::SeqCst);
         let weapon_id = loadout.weapon_ids
             .get(weapon_ind)
@@ -142,6 +157,11 @@ fn handle_hold_lmb (
             // If the weapon is not found, default to the first one
             &weapons.values().next().expect("No weapons available")
         });
+
+        // Emit an event that shooting has started
+        if let Err(e) = events_channel_sender.send(AppEvent::StartedShooting { weapon_ind }) {
+            eprintln!("Failed to send event: {}", e);
+        }
 
         println!("Controlling weapon: {}", weapon_id);
         let mut rounds_fired = 1;
@@ -263,6 +283,11 @@ fn handle_hold_lmb (
             break;
         }
     }
+
+    // Emit an event that shooting has stopped
+    if let Err(e) = events_channel_sender.send(AppEvent::StoppedShooting) {
+        eprintln!("Failed to send event: {}", e);
+    }
 }
 unsafe extern "system" fn wnd_proc(
     hwnd: HWND,
@@ -338,12 +363,25 @@ unsafe extern "system" fn wnd_proc(
                             state.left_hold_active.store(true, Ordering::SeqCst);
                             let weapons_clone = state.weapons.clone();
                             let global_config_clone = state.global_config.clone();
+
+                            let events_channel_sender_clone = state.events_channel_sender.clone();
+
                             let left_hold_clone = state.left_hold_active.clone();
                             let right_hold_clone = state.right_hold_active.clone();
                             let loadout_clone = state.loadout.clone();
                             let current_index_clone = state.current_weapon_index.clone();
 
-                            thread::spawn(|| { handle_hold_lmb(weapons_clone, global_config_clone, left_hold_clone, right_hold_clone, loadout_clone, current_index_clone) });
+                            thread::spawn(|| { handle_hold_lmb(
+                                weapons_clone,
+                                global_config_clone,
+
+                                events_channel_sender_clone,
+                                
+                                left_hold_clone,
+                                right_hold_clone,
+                                loadout_clone,
+                                current_index_clone
+                            ) });
                         }
                     }
                     if flags & RI_MOUSE_LEFT_BUTTON_UP != 0 {

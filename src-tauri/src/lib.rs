@@ -1,10 +1,11 @@
 mod winapi;
 
-use tauri::{Builder, Manager};
+use tauri::{ipc::Channel, Builder, Manager};
 use window_vibrancy::apply_acrylic;
+
 use std::{collections::HashMap, sync::{atomic::{AtomicBool, AtomicUsize}, Arc}};
 
-use crate::winapi::{main_recoil, AppState, FullAutoStandardConfig, GlobalConfig, Loadout, SingleFireConfig, Weapon};
+use crate::winapi::{main_recoil, AppEvent, AppState, FullAutoStandardConfig, GlobalConfig, Loadout, SingleFireConfig, Weapon};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -15,6 +16,17 @@ fn greet(name: &str) -> String {
 #[tauri::command]
 fn get_loadout(state: tauri::State<'_, AppState>) -> Loadout {
     (*state.loadout).clone()
+}
+#[tauri::command]
+async fn start_channel_reads (
+    state: tauri::State<'_, AppState>,
+    channel: Channel<AppEvent>,
+) -> Result<String, String> {
+    while let Ok(event) = state.events_channel_reciever.lock().await.recv() {
+        channel.send(event).expect("Failed to send event");
+    }
+
+    Err(String::from("Channel reads closed early?"))
 }
 
 async fn setup() -> AppState {
@@ -53,9 +65,13 @@ async fn setup() -> AppState {
     let global_config = GlobalConfig {
         require_right_hold: true,
     };
+    let (event_tx, event_rx) = std::sync::mpsc::channel();
     let state = AppState {
         weapons: Arc::new(weapons),
         global_config: Arc::new(global_config),
+
+        events_channel_sender: Arc::new(event_tx),
+        events_channel_reciever: Arc::new(tokio::sync::Mutex::new(event_rx)),
 
         left_hold_active: Arc::new(AtomicBool::new(false)),
         right_hold_active: Arc::new(AtomicBool::new(false)),
@@ -73,7 +89,7 @@ async fn setup() -> AppState {
 pub fn run() {
     Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, get_loadout])
+        .invoke_handler(tauri::generate_handler![greet, get_loadout, start_channel_reads])
         .setup(|app| {
             let state = tauri::async_runtime::block_on(setup());
             let window = app.get_webview_window("main").expect("Failed to get main window");
