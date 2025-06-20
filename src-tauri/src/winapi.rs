@@ -14,6 +14,9 @@ use winapi::um::winuser::*;
 #[derive(Serialize)]
 #[serde(tag = "event", content = "data")]
 pub enum AppEvent {
+    SwitchedWeapon {
+        weapon_ind: usize,
+    },
     StartedShooting {
         weapon_ind: usize
     },
@@ -136,6 +139,11 @@ fn handle_hold_lmb (
         // Check that the right button is also held down
         if global_config.require_right_hold && !right_hold_active.load(Ordering::SeqCst) {
             println!("Right button not held, continuing hold loop.");
+
+            // Emit an event that shooting has stopped
+            if let Err(e) = events_channel_sender.send(AppEvent::StoppedShooting) {
+                eprintln!("Failed to send event: {}", e);
+            }
 
             if !left_hold_active.load(Ordering::SeqCst) {
                 // If the left button is not held, exit the loop
@@ -416,11 +424,25 @@ unsafe extern "system" fn wnd_proc(
                     if flags as u32 & RI_KEY_BREAK != 0 && keyboard.VKey == 0x31 { // '1' key
                         println!("Switching to weapon 1");
                         state.current_weapon_index.store(0, Ordering::SeqCst);
+
+                        // Emit an event that the weapon has been switched
+                        if let Err(e) = state.events_channel_sender.send(AppEvent::SwitchedWeapon {
+                            weapon_ind: 0,
+                        }) {
+                            eprintln!("Failed to send event: {}", e);
+                        }
                     }
                     // When the '2' key is pressed, switch to the second weapon
                     if flags as u32 & RI_KEY_BREAK != 0 && keyboard.VKey == 0x32 { // '2' key
                         println!("Switching to weapon 2");
                         state.current_weapon_index.store(1, Ordering::SeqCst);
+
+                        // Emit an event that the weapon has been switched
+                        if let Err(e) = state.events_channel_sender.send(AppEvent::SwitchedWeapon {
+                            weapon_ind: 1,
+                        }) {
+                            eprintln!("Failed to send event: {}", e);
+                        }
                     }
                 }
             }

@@ -8,16 +8,19 @@ import {
     shooting
 } from '../stores/state';
 
+type SwitchedWeaponEvent = {
+    event: 'SwitchedWeapon';
+    data: { weapon_ind: number };
+};
 type StartedShootingEvent = {
     event: 'StartedShooting';
     data: { weapon_ind: number };
 };
-
 type StoppedShootingEvent = {
     event: 'StoppedShooting';
 };
 
-type Event = StartedShootingEvent | StoppedShootingEvent;
+type Event = SwitchedWeaponEvent | StartedShootingEvent | StoppedShootingEvent;
 
 let channel: Channel<Event>;
 
@@ -36,6 +39,9 @@ export async function initialize() {
 
 function handleChannelEvent(message: Event) {
     switch (message.event) {
+        case 'SwitchedWeapon':
+            current_weapon_index.set(message.data.weapon_ind);
+            break;
         case 'StartedShooting':
             shooting.set(true);
             current_weapon_index.set(message.data.weapon_ind);

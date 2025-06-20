@@ -38,19 +38,22 @@ function sketch(p: p5) {
         p.background(0, 5); // semi-transparent background for fading effect
 
         for (let dot of dots) {
-            p.fill(255, 150); // white with some transparency
+            p.fill(105, 150); // white with some transparency
             p.ellipse(dot.x, dot.y, dot.size);
             
             // Update dot position
             dot.x += p.cos(dot.angle) * dot.speed;
             dot.y += p.sin(dot.angle) * dot.speed;
+
             // Wrap around edges
             if (dot.x < 0) dot.x = p.width;
             if (dot.x > p.width) dot.x = 0;
             if (dot.y < 0) dot.y = p.height;
             if (dot.y > p.height) dot.y = 0;
+
             // Randomly change direction
             dot.angle += p.random(Math.PI / 20, Math.PI / 10) * (p.random() < 0.5 ? 1 : -1);
+
             // Randomly change speed
             if (p.random() < 0.01) {
                 dot.speed = p.random(0.5, 2);
