@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 use std::{mem, ptr, thread, time::Duration};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use serde::Serialize;
 use winapi::shared::hidusage::*;
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
@@ -10,46 +11,46 @@ use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::winuser::*;
 
 #[derive(Clone)]
-struct GlobalConfig {
-    require_right_hold: bool,
+pub struct GlobalConfig {
+    pub require_right_hold: bool,
+}
+#[derive(Clone, Serialize)]
+pub struct Loadout {
+    pub name: String,
+    pub weapon_ids: Vec<String>,
 }
 #[derive(Clone)]
-struct Loadout {
-    name: String,
-    weapon_ids: Vec<String>,
-}
-#[derive(Clone)]
-struct AppState {
-    weapons: Arc<HashMap<String, Weapon>>,
-    global_config: Arc<GlobalConfig>,
+pub struct AppState {
+    pub weapons: Arc<HashMap<String, Weapon>>,
+    pub global_config: Arc<GlobalConfig>,
 
-    left_hold_active: Arc<AtomicBool>,
-    right_hold_active: Arc<AtomicBool>,
-    loadout: Arc<Loadout>,
-    current_weapon_index: Arc<AtomicUsize>,
+    pub left_hold_active: Arc<AtomicBool>,
+    pub right_hold_active: Arc<AtomicBool>,
+    pub loadout: Arc<Loadout>,
+    pub current_weapon_index: Arc<AtomicUsize>,
 }
 #[derive(Clone)]
-struct SingleFireConfig {
-    trigger_delay_ms: u32,
-    recoil_completion_ms: u32,
-    release_delay_ms: u32,
-    dx: f32,
-    dy: f32,
-    mag_size: u32,
-    autofire: bool,
+pub struct SingleFireConfig {
+    pub trigger_delay_ms: u32,
+    pub recoil_completion_ms: u32,
+    pub release_delay_ms: u32,
+    pub dx: f32,
+    pub dy: f32,
+    pub mag_size: u32,
+    pub autofire: bool,
 }
 #[derive(Clone)]
-struct FullAutoStandardConfig {
-    rpm: u128,
-    first_shot_scale: f32,
-    exponential_factor: f32,
-    dx: f32,
-    dy: f32,
-    mag_size: u32,
+pub struct FullAutoStandardConfig {
+    pub rpm: u128,
+    pub first_shot_scale: f32,
+    pub exponential_factor: f32,
+    pub dx: f32,
+    pub dy: f32,
+    pub mag_size: u32,
 }
 
 #[derive(Clone)]
-enum Weapon {
+pub enum Weapon {
     SingleFire(SingleFireConfig),
     FullAutoStandard(FullAutoStandardConfig),
 }
@@ -392,48 +393,10 @@ fn to_wstring(s: &str) -> Vec<u16> {
     use std::os::windows::ffi::OsStrExt;
     std::ffi::OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
 }
-fn main() {
-    let weapons = HashMap::from([
-        (String::from("R4-C"), Weapon::FullAutoStandard(FullAutoStandardConfig {
-            rpm: 860,
-            first_shot_scale: 1.23,
-            exponential_factor: 1.007,
-            dx: -5.0,
-            dy: 129.5,
-            mag_size: 26,
-        })),
-        (String::from("417"), Weapon::SingleFire(SingleFireConfig {
-            trigger_delay_ms: 90,
-            recoil_completion_ms: 10,
-            release_delay_ms: 25,
-            dx: 0.0,
-            dy: 46.5,
-            mag_size: 21,
-            autofire: true,
-        })),
-        (String::from("P12"), Weapon::SingleFire(SingleFireConfig {
-            trigger_delay_ms: 80,
-            recoil_completion_ms: 10,
-            release_delay_ms: 25,
-            dx: 0.5,
-            dy: 22.0,
-            mag_size: 17,
-            autofire: true,
-        })),
-    ]);
-    let loadout = Loadout {
-        name: "Twitch".to_string(),
-        weapon_ids: vec!(String::from("417"), String::from("P12")),
-    };
-    let global_config = GlobalConfig {
-        require_right_hold: true,
-    };
 
-    println!("[ Started with loadout \"{}\" ]", loadout.name);
-    for (i, weapon_id) in loadout.weapon_ids.iter().enumerate() {
-        println!("[ Weapon {}: {} ]", i + 1, weapon_id);
-    }
-
+pub fn main_recoil (
+    state: AppState
+) {
     unsafe {
         let hinstance = GetModuleHandleW(ptr::null());
         let class_name = to_wstring("RawInputWnd");
@@ -447,15 +410,6 @@ fn main() {
         };
         RegisterClassW(&wnd_class);
 
-        let state = AppState {
-            weapons: Arc::new(weapons),
-            global_config: Arc::new(global_config),
-
-            left_hold_active: Arc::new(AtomicBool::new(false)),
-            right_hold_active: Arc::new(AtomicBool::new(false)),
-            loadout: Arc::new(loadout),
-            current_weapon_index: Arc::new(AtomicUsize::new(0)),
-        };
         let state_ptr = Box::into_raw(Box::new(state)) as *mut _;
 
         let hwnd = CreateWindowExW(
