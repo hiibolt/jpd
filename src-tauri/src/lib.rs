@@ -1,6 +1,7 @@
 mod winapi;
 
 use tauri::{Builder, Manager};
+use window_vibrancy::apply_acrylic;
 use std::{collections::HashMap, sync::{atomic::{AtomicBool, AtomicUsize}, Arc}};
 
 use crate::winapi::{main_recoil, AppState, FullAutoStandardConfig, GlobalConfig, Loadout, SingleFireConfig, Weapon};
@@ -75,7 +76,15 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![greet, get_loadout])
         .setup(|app| {
             let state = tauri::async_runtime::block_on(setup());
+            let window = app.get_webview_window("main").expect("Failed to get main window");
 
+            // Apply vibrancy effect on Windows
+            apply_acrylic(
+                &window,
+                Some((18, 18, 18, 125))
+            ).expect("Unsupported platform! 'apply_blur' is only supported on Windows");
+
+            // Register the application state
             app.manage(state);
 
             Ok(())

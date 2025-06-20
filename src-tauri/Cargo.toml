@@ -24,4 +24,5 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 winapi = { version = "0.3.9", features = ["windef", "winuser", "libloaderapi", "hidusage", "impl-default"] }
 tokio = { version = "1.45.1", features = ["full"] }
+window-vibrancy = "0.6.0"
 

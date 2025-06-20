@@ -499,6 +499,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tokio",
  "winapi",
+ "window-vibrancy",
 ]
 
 [[package]]
