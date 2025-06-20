@@ -14,8 +14,12 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 #[tauri::command]
-fn get_loadout(state: tauri::State<'_, AppState>) -> Loadout {
-    (*state.loadout).clone()
+fn get_loadouts(state: tauri::State<'_, AppState>) -> Vec<Loadout> {
+    (*state.loadouts).clone()
+}
+#[tauri::command]
+fn get_weapons(state: tauri::State<'_, AppState>) -> HashMap<String, Weapon> {
+    (*state.weapons).clone()
 }
 #[tauri::command]
 async fn start_channel_reads (
@@ -27,6 +31,22 @@ async fn start_channel_reads (
     }
 
     Err(String::from("Channel reads closed early?"))
+}
+#[tauri::command]
+async fn change_loadout (
+    state: tauri::State<'_, AppState>,
+    new_loadout_index: usize
+) -> Result<usize, String> {
+    if new_loadout_index >= state.loadouts.len() {
+        return Err(format!("Invalid loadout index: {}", new_loadout_index));
+    }
+
+    state.current_loadout_index.store(new_loadout_index, std::sync::atomic::Ordering::SeqCst);
+    state.current_weapon_index.store(0, std::sync::atomic::Ordering::SeqCst);
+    
+    let current_loadout = &state.loadouts[new_loadout_index];
+    println!("Changed to loadout: {}", current_loadout.name);
+    Ok(new_loadout_index)
 }
 
 async fn setup() -> AppState {
@@ -58,16 +78,27 @@ async fn setup() -> AppState {
             autofire: true,
         })),
     ]);
-    let loadout = Loadout {
-        name: "Twitch".to_string(),
-        weapon_ids: vec!(String::from("417"), String::from("P12")),
-    };
+    let loadouts = Vec::from([
+        Loadout {
+            name: "Twitch".to_string(),
+            weapon_ids: vec!(String::from("417"), String::from("P12")),
+        },
+        Loadout {
+            name: "Ash".to_string(),
+            weapon_ids: vec!(String::from("R4-C"), String::from("417")),
+        },
+        Loadout {
+            name: "Default".to_string(),
+            weapon_ids: vec!(String::from("R4-C"), String::from("417")),
+        },
+    ]);
     let global_config = GlobalConfig {
         require_right_hold: true,
     };
     let (event_tx, event_rx) = std::sync::mpsc::channel();
     let state = AppState {
         weapons: Arc::new(weapons),
+        loadouts: Arc::new(loadouts),
         global_config: Arc::new(global_config),
 
         events_channel_sender: Arc::new(event_tx),
@@ -75,7 +106,7 @@ async fn setup() -> AppState {
 
         left_hold_active: Arc::new(AtomicBool::new(false)),
         right_hold_active: Arc::new(AtomicBool::new(false)),
-        loadout: Arc::new(loadout),
+        current_loadout_index: Arc::new(AtomicUsize::new(0)),
         current_weapon_index: Arc::new(AtomicUsize::new(0)),
     };
     let state_cloned = state.clone();
@@ -89,7 +120,13 @@ async fn setup() -> AppState {
 pub fn run() {
     Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, get_loadout, start_channel_reads])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            get_loadouts,
+            change_loadout,
+            get_weapons,
+            start_channel_reads
+        ])
         .setup(|app| {
             let state = tauri::async_runtime::block_on(setup());
             let window = app.get_webview_window("main").expect("Failed to get main window");

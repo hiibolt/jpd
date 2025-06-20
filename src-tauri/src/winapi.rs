@@ -31,6 +31,7 @@ pub struct Loadout {
 #[derive(Clone)]
 pub struct AppState {
     pub weapons: Arc<HashMap<String, Weapon>>,
+    pub loadouts: Arc<Vec<Loadout>>,
     pub global_config: Arc<GlobalConfig>,
 
     pub events_channel_sender: Arc<Sender<AppEvent>>,
@@ -38,10 +39,10 @@ pub struct AppState {
 
     pub left_hold_active: Arc<AtomicBool>,
     pub right_hold_active: Arc<AtomicBool>,
-    pub loadout: Arc<Loadout>,
+    pub current_loadout_index: Arc<AtomicUsize>,
     pub current_weapon_index: Arc<AtomicUsize>,
 }
-#[derive(Clone)]
+#[derive(Serialize, Clone)]
 pub struct SingleFireConfig {
     pub trigger_delay_ms: u32,
     pub recoil_completion_ms: u32,
@@ -51,7 +52,7 @@ pub struct SingleFireConfig {
     pub mag_size: u32,
     pub autofire: bool,
 }
-#[derive(Clone)]
+#[derive(Serialize, Clone)]
 pub struct FullAutoStandardConfig {
     pub rpm: u128,
     pub first_shot_scale: f32,
@@ -61,7 +62,8 @@ pub struct FullAutoStandardConfig {
     pub mag_size: u32,
 }
 
-#[derive(Clone)]
+#[derive(Serialize, Clone)]
+#[serde(tag = "type", content = "config")]
 pub enum Weapon {
     SingleFire(SingleFireConfig),
     FullAutoStandard(FullAutoStandardConfig),
@@ -120,14 +122,15 @@ fn move_down (
 }
 fn handle_hold_lmb (
     weapons: Arc<HashMap<String, Weapon>>,
+    loadouts: Arc<Vec<Loadout>>,
     global_config: Arc<GlobalConfig>,
 
     events_channel_sender: Arc<Sender<AppEvent>>,
 
     left_hold_active: Arc<AtomicBool>,
     right_hold_active: Arc<AtomicBool>,
-    loadout: Arc<Loadout>,
-    current_index: Arc<AtomicUsize>,
+    current_loadout_index: Arc<AtomicUsize>,
+    current_weapon_index: Arc<AtomicUsize>,
 ) {
     'outer: loop {
         // Check that the right button is also held down
@@ -144,13 +147,18 @@ fn handle_hold_lmb (
             continue 'outer;
         }
 
-
-        let weapon_ind = current_index.load(Ordering::SeqCst);
+        let loadout = loadouts
+            .get(current_loadout_index.load(Ordering::SeqCst))
+            .unwrap_or_else(|| {
+                // If the loadout is not found, default to the first one
+                &loadouts[0]
+            });
+        let weapon_ind = current_weapon_index.load(Ordering::SeqCst);
         let weapon_id = loadout.weapon_ids
             .get(weapon_ind)
             .unwrap_or_else(|| {
                 // Set the weapon to the first one if the index is out of bounds
-                current_index.store(0, Ordering::SeqCst);
+                current_weapon_index.store(0, Ordering::SeqCst);
                 &loadout.weapon_ids[0]
             });
         let weapon = weapons.get(weapon_id).unwrap_or_else(|| {
@@ -187,7 +195,7 @@ fn handle_hold_lmb (
                     iteration += 1;
 
                     // Check if the weapon has been changed
-                    let new_weapon_ind = current_index.load(Ordering::SeqCst);
+                    let new_weapon_ind = current_weapon_index.load(Ordering::SeqCst);
                     if new_weapon_ind != weapon_ind {
                         // If the weapon has changed, exit the loop
                         println!("Weapon changed while firing, exiting hold loop.");
@@ -262,7 +270,7 @@ fn handle_hold_lmb (
                     std::thread::sleep(trigger_delay);
 
                     // Check if the weapon has been changed
-                    let new_weapon_ind = current_index.load(Ordering::SeqCst);
+                    let new_weapon_ind = current_weapon_index.load(Ordering::SeqCst);
                     if new_weapon_ind != weapon_ind {
                         // If the weapon has changed, exit the loop
                         println!("Weapon changed while firing, exiting hold loop.");
@@ -362,17 +370,19 @@ unsafe extern "system" fn wnd_proc(
                         if !state.left_hold_active.load(Ordering::SeqCst) {
                             state.left_hold_active.store(true, Ordering::SeqCst);
                             let weapons_clone = state.weapons.clone();
+                            let loadouts_clone = state.loadouts.clone();
                             let global_config_clone = state.global_config.clone();
 
                             let events_channel_sender_clone = state.events_channel_sender.clone();
 
                             let left_hold_clone = state.left_hold_active.clone();
                             let right_hold_clone = state.right_hold_active.clone();
-                            let loadout_clone = state.loadout.clone();
+                            let loadout_clone = state.current_loadout_index.clone();
                             let current_index_clone = state.current_weapon_index.clone();
 
                             thread::spawn(|| { handle_hold_lmb(
                                 weapons_clone,
+                                loadouts_clone,
                                 global_config_clone,
 
                                 events_channel_sender_clone,

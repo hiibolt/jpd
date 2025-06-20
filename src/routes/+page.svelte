@@ -1,45 +1,112 @@
+
 <main class="container">
-  <!-- Tauri-based Titlebar -->
+  <!-- Tauri Titlebar -->
   <div data-tauri-drag-region class="titlebar">
-    <button class="titlebar-button" id="titlebar-minimize" aria-label="Minimize" onclick={minimize}>
-      <img
-      src="https://api.iconify.design/mdi:window-minimize.svg"
-      alt="minimize"
-      />
+    <button class="titlebar-button" aria-label="Minimize" onclick={minimize}>
+      <img src="https://api.iconify.design/mdi:window-minimize.svg" alt="minimize" />
     </button>
-    <button class="titlebar-button" id="titlebar-maximize" aria-label="Maximize" onclick={maximize}>
-      <img
-      src="https://api.iconify.design/mdi:window-maximize.svg"
-      alt="maximize"
-      />
+    <button class="titlebar-button" aria-label="Maximize" onclick={maximize}>
+      <img src="https://api.iconify.design/mdi:window-maximize.svg" alt="maximize" />
     </button>
-    <button class="titlebar-button" id="titlebar-close" aria-label="Close" onclick={close}>
+    <button class="titlebar-button" aria-label="Close" onclick={close}>
       <img src="https://api.iconify.design/mdi:close.svg" alt="close" />
     </button>
   </div>
 
-  <!-- Main content -->
   <div class="banner">
     <h2>CLC JPD</h2>
   </div>
-  <div>
-    <h3>Loadout: {loadout.name}</h3>
-    <ul>
-      {#each loadout.weapon_ids as item, ind}
-        <li>
-          <span class="weapon-name">{item} - {ind}</span>
-          {#if shooting && weaponIndex === ind}
-            <span class="shooting-indicator">Shooting!</span>
-          {:else}
-            <span class="not-shooting-indicator">Not Shooting</span>
-          {/if}
-        </li>
-      {/each}
-    </ul>
+
+  <div class="main-layout">
+    <!-- Left Column: Loadouts -->
+    <div class="left-column card">
+      {#if loadouts.length > 1}
+        {#each loadouts as loadout, index}
+          <button
+            class="loadout-card"
+            onclick={() => change_loadout(index)}
+          >
+            {loadout.name}
+          </button>
+        {/each}
+      {:else}
+        <p>Loading loadouts...</p>
+      {/if}
+    </div>
+
+    <!-- Right Column: Active Loadout + Account Info -->
+    <div class="right-column">
+      <!-- Upper: Loadout Details -->
+      <div class="card upper-right-card">
+        {#if loadouts.length > 0}
+          <h3>{loadouts[current_loadout_index].name}</h3>
+          {#each loadouts[current_loadout_index].weapon_ids as item, ind}
+            <div
+              class="weapon-card {current_weapon_index === ind ? 'active open' : ''}"
+            >
+              <div class="weapon-header">
+                <span>{item}</span>
+                <span class="weapon-status {shooting && current_weapon_index === ind
+                    ? 'shooting'
+                    : 'not-shooting'}"></span>
+              </div>
+
+              <button
+                class="weapon-card-toggle"
+                onclick={() =>
+                  document
+                    .querySelectorAll('.weapon-card')
+                    [ind]?.classList.toggle('open')
+                }
+              >
+                {#if document.querySelectorAll('.weapon-card')[ind]?.classList.contains('open')}
+                  Hide Details
+                {:else}
+                  Show Details
+                {/if}
+              </button>
+
+              {#if weapons[item]}
+                <div class="stats-group">
+                  <p>Type: {weapons[item].type}</p>
+                  {#if weapons[item].type === 'SingleFire'}
+                    <p>Trigger Delay: {weapons[item].config.trigger_delay_ms} ms</p>
+                    <p>Recoil Completion: {weapons[item].config.recoil_completion_ms} ms</p>
+                    <p>Release Delay: {weapons[item].config.release_delay_ms} ms</p>
+                    <p>DX/DY: {weapons[item].config.dx}/{weapons[item].config.dy}</p>
+                    <p>Mag Size: {weapons[item].config.mag_size}</p>
+                  {:else if weapons[item].type === 'FullAutoStandard'}
+                    <p>RPM: {weapons[item].config.rpm}</p>
+                    <p>First Shot Scale: {weapons[item].config.first_shot_scale}</p>
+                    <p>Exponential Factor: {weapons[item].config.exponential_factor}</p>
+                    <p>DX/DY: {weapons[item].config.dx}/{weapons[item].config.dy}</p>
+                    <p>Mag Size: {weapons[item].config.mag_size}</p>
+                  {/if}
+                </div>
+              {:else}
+                <p>Weapon data unavailable</p>
+              {/if}
+            </div>
+          {/each}
+        {:else}
+          <p>No loadout selected</p>
+        {/if}
+      </div>
+
+      <!-- Lower: Account Panel -->
+      <div class="card lower-right-card">
+        <button data-tooltip="Settings">⚙️</button>
+        <button data-tooltip="Account">👤</button>
+        <div class="username">@me</div>
+      </div>
+    </div>
   </div>
 </main>
 
+
+
 <script lang="ts">
+  import { writable } from 'svelte/store';
   import { invoke, Channel } from "@tauri-apps/api/core";
   import { getCurrentWindow } from '@tauri-apps/api/window';
   const appWindow = getCurrentWindow();
@@ -56,14 +123,42 @@
   type Event = 
     | StartedShootingEvent
     | StoppedShootingEvent;
+
   type Loadout = {
     name: string;
     weapon_ids: Array<string>;
   }
+  
+  type SingleFireConfig = {
+    trigger_delay_ms: number;
+    recoil_completion_ms: number;
+    release_delay_ms: number;
+    dx: number;
+    dy: number;
+    mag_size: number;
+    autofire: boolean;
+  };
+  type FullAutoStandardConfig = {
+    rpm: number;
+    first_shot_scale: number;
+    exponential_factor: number;
+    dx: number;
+    dy: number;
+    mag_size: number;
+  };
+  type Weapon = {
+    type: "SingleFire" | "FullAutoStandard";
+    config: SingleFireConfig | FullAutoStandardConfig;
+  };
+  type Weapons = {
+    [id: string]: Weapon;
+  };
 
-  let loadout = $state({} as Loadout);
+  let weapons = $state<Weapons>({});
+  let loadouts = $state<Array<Loadout>>([]);
   let shooting = $state(false);
-  let weaponIndex = $state(0);
+  let current_loadout_index = $state(0);
+  let current_weapon_index = $state(0);
 
   const channel = new Channel<Event>(); 
   channel.onmessage = (message) => {
@@ -71,7 +166,7 @@
       case "StartedShooting":
         console.log(`Started shooting with weapon index: ${message.data.weapon_ind}`);
         shooting = true;
-        weaponIndex = message.data.weapon_ind;
+        current_weapon_index = message.data.weapon_ind;
         break;
       case "StoppedShooting":
         console.log("Stopped shooting");
@@ -84,15 +179,21 @@
 
   // Load the loadout from the Rust backend
   async function load() {
-    try {
-      loadout = await invoke("get_loadout");
-    } catch (error) {
-      console.error("Failed to load loadout:", error);
-    }
+    // Load loadouts
+    loadouts = await invoke("get_loadouts");
+
+    // Load weapons
+    weapons = await invoke("get_weapons");
+
     await invoke("start_channel_reads", { channel });
   }
   load();
 
+  async function change_loadout ( new_loadout_index: number ) {
+    current_loadout_index = await invoke("change_loadout", { newLoadoutIndex: new_loadout_index });
+
+    $inspect(current_loadout_index);
+  }
   function minimize() {
     console.log("Minimizing window");
     appWindow.minimize();
@@ -106,76 +207,3 @@
     appWindow.close();
   }
 </script>
-
-<style>
-  /*
-  .logo.vite:hover {
-    filter: drop-shadow(0 0 2em #747bff);
-  }
-  .logo.svelte-kit:hover {
-    filter: drop-shadow(0 0 2em #ff3e00);
-  }
-  */
-  .titlebar {
-    height: 30px;
-    user-select: none;
-    display: flex;
-    margin-right: 5px;
-    justify-content: flex-end;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-  }
-  .titlebar-button {
-    border-radius: 8px;
-    border: 1px solid transparent;
-    padding: 0.6em 1.2em;
-
-    background-color: transparent;
-    display: inline-flex;
-    margin: 5px 0px 0px 5px;
-    justify-content: center;
-    align-items: center;
-    width: 20px;
-    height: 25px;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .titlebar-button:hover {
-    transition: background-color 0.20s ease-in-out;
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  :root {
-    font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-    font-size: 16px;
-    font-weight: 400;
-
-    background-color: #f6f6f6;
-
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    -webkit-text-size-adjust: 100%;
-  }
-
-  .banner {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    text-align: center;
-  }
-  .container {
-    padding-top: 3vh;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      color: #f6f6f6;
-      background-color: rgba(0, 0, 0, .15);   
-      backdrop-filter: blur(5px);
-    }
-  }
-</style>
