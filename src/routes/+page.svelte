@@ -1,6 +1,27 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { getCurrentWindow } from '@tauri-apps/api/window';
 
+  console.log("Tauri + SvelteKit app started :3");
+
+  // when using `"withGlobalTauri": true`, you may use
+  // const { getCurrentWindow } = window.__TAURI__.window;
+
+  const appWindow = getCurrentWindow();
+
+  function minimize() {
+    console.log("Minimizing window");
+    appWindow.minimize();
+  }
+  function maximize() {
+    console.log("Maximizing window");
+    appWindow.toggleMaximize();
+  }
+  function close() {
+    console.log("Closing window");
+    appWindow.close();
+  }
+  
   type Loadout = {
     name: string;
     items: Array<string>;
@@ -28,6 +49,48 @@
 </script>
 
 <main class="container">
+  <style>
+    .titlebar {
+      height: 30px;
+      background: #329ea3;
+      user-select: none;
+      display: flex;
+      justify-content: flex-end;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+    }
+    .titlebar-button {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 30px;
+      height: 30px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .titlebar-button:hover {
+      background: #5bbec3;
+    }
+  </style>
+  <div data-tauri-drag-region class="titlebar">
+    <button class="titlebar-button" id="titlebar-minimize" aria-label="Minimize" onclick={minimize}>
+      <img
+      src="https://api.iconify.design/mdi:window-minimize.svg"
+      alt="minimize"
+      />
+    </button>
+    <button class="titlebar-button" id="titlebar-maximize" aria-label="Maximize" onclick={maximize}>
+      <img
+      src="https://api.iconify.design/mdi:window-maximize.svg"
+      alt="maximize"
+      />
+    </button>
+    <button class="titlebar-button" id="titlebar-close" aria-label="Close" onclick={close}>
+      <img src="https://api.iconify.design/mdi:close.svg" alt="close" />
+    </button>
+  </div>
   <h1>Welcome to Tauri + Svelte</h1>
   <h2>Loadout: {loadout.name}</h2>
 
