@@ -4,6 +4,7 @@
     import LoadoutCard from '../components/LoadoutCard.svelte';
     import WeaponCard from '../components/WeaponCard.svelte';
     import AccountPanel from '../components/AccountPanel.svelte';
+    import Background from '../components/Background.svelte';
 
     import { loadouts, weapons, current_loadout_index, current_weapon_index, shooting } from '../stores/state';
 
@@ -12,6 +13,7 @@
     $: currentLoadout = $loadouts[$current_loadout_index] ?? { name: 'Loading...', weapon_ids: [] };
 </script>
 
+<Background />
 <main class="container">
     <Titlebar />
     <Banner />
