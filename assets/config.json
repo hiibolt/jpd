@@ -1,3 +1,7 @@
 {
-  "require_right_hold": true
+  "require_right_hold": true,
+  "keybinds": {
+    "primary_weapon": "1",
+    "secondary_weapon": "2"
+  }
 }

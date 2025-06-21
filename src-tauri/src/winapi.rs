@@ -11,6 +11,18 @@ use winapi::shared::windef::*;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::winuser::*;
 
+unsafe fn char_to_vk(c: char) -> u16 {
+    unsafe {
+        let return_value = VkKeyScanExW(
+            c as u16,
+            GetKeyboardLayout(0),
+        );
+        if return_value == -1 {
+            panic!("Failed to convert character '{}' to virtual key code", c);
+        }
+        (return_value & 0xFF) as u16
+    }
+}
 unsafe extern "system" fn wnd_proc(
     hwnd: HWND,
     msg: UINT,
@@ -128,8 +140,11 @@ unsafe extern "system" fn wnd_proc(
                 if !state_ptr.is_null() {
                     let state: &AppState = unsafe { &*state_ptr };
 
+                    let primary_key   = unsafe { char_to_vk(state.global_config.keybinds.primary_weapon) };
+                    let secondary_key = unsafe { char_to_vk(state.global_config.keybinds.secondary_weapon)};
+
                     // When the '1' key is pressed, switch to the first weapon
-                    if flags as u32 & RI_KEY_BREAK != 0 && keyboard.VKey == 0x31 { // '1' key
+                    if flags as u32 & RI_KEY_BREAK != 0 && keyboard.VKey == primary_key {
                         println!("Switching to weapon 1");
                         state.current_weapon_index.store(0, Ordering::SeqCst);
 
@@ -141,7 +156,7 @@ unsafe extern "system" fn wnd_proc(
                         }
                     }
                     // When the '2' key is pressed, switch to the second weapon
-                    if flags as u32 & RI_KEY_BREAK != 0 && keyboard.VKey == 0x32 { // '2' key
+                    if flags as u32 & RI_KEY_BREAK != 0 && keyboard.VKey == secondary_key {
                         println!("Switching to weapon 2");
                         state.current_weapon_index.store(1, Ordering::SeqCst);
 
@@ -174,6 +189,7 @@ fn to_wstring(s: &str) -> Vec<u16> {
 pub fn main_recoil (
     state: AppState
 ) {
+    println!("Starting `clc-jpd`...");
     unsafe {
         let hinstance = GetModuleHandleW(ptr::null());
         let class_name = to_wstring("RawInputWnd");
