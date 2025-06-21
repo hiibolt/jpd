@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::{mpsc::{Sender, Receiver}, atomic::AtomicUsize};
 use std::{mem, ptr, thread, time::Duration};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use winapi::shared::hidusage::*;
 use winapi::shared::minwindef::*;
@@ -22,15 +22,13 @@ pub enum AppEvent {
     },
     StoppedShooting
 }
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct GlobalConfig {
     pub require_right_hold: bool,
 }
 #[derive(Clone)]
 pub struct AppState {
-    pub games:         Arc<Vec<Game>>,
-    pub weapons:       Arc<Mutex<HashMap<String, Weapon>>>,
-
+    pub games:         Arc<RwLock<Vec<Game>>>,
     pub global_config: Arc<GlobalConfig>,
     
     pub events_channel_sender:   Arc<Sender<AppEvent>>,
@@ -67,8 +65,9 @@ pub struct FullAutoStandardConfig {
 
 #[derive(Clone, Serialize)]
 pub struct Game {
-    pub name: String,
+    pub name:       String,
     pub categories: Vec<Category>,
+    pub weapons:    HashMap<String, Weapon>,
 }
 #[derive(Clone, Serialize)]
 pub struct Category {
@@ -139,8 +138,7 @@ fn move_down (
     }
 }
 fn handle_hold_lmb (
-    games: Arc<Vec<Game>>,
-    weapons: HashMap<String, Weapon>,
+    games: Arc<RwLock<Vec<Game>>>,
     global_config: Arc<GlobalConfig>,
 
     events_channel_sender: Arc<Sender<AppEvent>>,
@@ -170,6 +168,7 @@ fn handle_hold_lmb (
         }
 
         // Get the current game
+        let games = games.read_arc();
         let current_game_index = current_game_index.load(Ordering::SeqCst);
         if current_game_index >= games.len() {
             eprintln!("Invalid game index: {}", current_game_index);
@@ -180,7 +179,7 @@ fn handle_hold_lmb (
         // Get the current category
         let current_category_index = current_category_index.load(Ordering::SeqCst);
         if current_category_index >= current_game.categories.len() {
-            eprintln!("Invalid category index: {}", current_category_index);
+            eprintln!("Invalid category index `{}` for game `{}`", current_category_index, current_game.name);
             return;
         }
         let current_category = &current_game.categories[current_category_index];
@@ -188,7 +187,7 @@ fn handle_hold_lmb (
         // Get the current loadout
         let current_loadout_index = current_loadout_index.load(Ordering::SeqCst);
         if current_loadout_index >= current_category.loadouts.len() {
-            eprintln!("Invalid loadout index: {}", current_loadout_index);
+            eprintln!("Invalid loadout index `{}` for category `{}` in game `{}`", current_loadout_index, current_category.name, current_game.name);
             return;
         }
         let current_loadout = &current_category.loadouts[current_loadout_index];
@@ -196,12 +195,12 @@ fn handle_hold_lmb (
         // Get the current weapon index
         let weapon_ind = current_weapon_index.load(Ordering::SeqCst);
         if weapon_ind >= current_loadout.weapon_ids.len() {
-            eprintln!("Invalid weapon index: {}", weapon_ind);
+            eprintln!("Invalid weapon index `{}` for loadout `{}` in category `{}` in game `{}`", weapon_ind, current_loadout.name, current_category.name, current_game.name);
             return;
         }
         let weapon_id = &current_loadout.weapon_ids[weapon_ind];
         // Get the weapon configuration
-        let weapon = match weapons.get(weapon_id) {
+        let weapon = match current_game.weapons.get(weapon_id) {
             Some(weapon) => weapon.clone(),
             None => {
                 eprintln!("Weapon not found: {}", weapon_id);
@@ -413,7 +412,6 @@ unsafe extern "system" fn wnd_proc(
                         if !state.left_hold_active.load(Ordering::SeqCst) {
                             state.left_hold_active.store(true, Ordering::SeqCst);
                             let games_clone = state.games.clone();
-                            let weapons_clone = state.weapons.lock().clone();
                             let global_config_clone = state.global_config.clone();
 
                             let events_channel_sender_clone = state.events_channel_sender.clone();
@@ -427,7 +425,6 @@ unsafe extern "system" fn wnd_proc(
 
                             thread::spawn(|| { handle_hold_lmb(
                                 games_clone,
-                                weapons_clone,
                                 global_config_clone,
 
                                 events_channel_sender_clone,

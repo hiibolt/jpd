@@ -1,0 +1,31 @@
+{
+  "name": "Rust",
+  "categories": [],
+  "weapons": {
+    "Rust_M4A4": {
+      "type": "SingleFire",
+      "config": {
+        "name": "M4A4",
+        "trigger_delay_ms": 70,
+        "recoil_completion_ms": 8,
+        "release_delay_ms": 20,
+        "dx": 0.0,
+        "dy": 40.0,
+        "mag_size": 30,
+        "autofire": true
+      }
+    },
+    "Rust_AK47": {
+      "type": "FullAutoStandard",
+      "config": {
+        "name": "AK-47",
+        "rpm": 600,
+        "first_shot_scale": 1.15,
+        "exponential_factor": 1.005,
+        "dx": -3.0,
+        "dy": 100.0,
+        "mag_size": 30
+      }
+    }
+  }
+}

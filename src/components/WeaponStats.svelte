@@ -1,6 +1,6 @@
 <script lang="ts">
     import { invoke } from '@tauri-apps/api/core';
-    import { weapons } from '../stores/state';
+    import { games } from '../stores/state';
 
     export let id: string;
     export let config: any;
@@ -10,8 +10,8 @@
         await invoke('set_autofire', { enabled, weapon });
 
         // Reload all weapons to reflect changes
-        const loadedWeapons = await invoke('get_weapons');
-        weapons.set(loadedWeapons as any);
+        const loadGames = await invoke('get_games');
+        games.set(loadGames as any);
     }
 </script>
 

@@ -8,12 +8,13 @@
     import Background from '../components/Background.svelte';
 
     import {
-      games, weapons, 
+      games,
       current_loadout_index, current_weapon_index, current_category_index, current_game_index,
       shooting 
     } from '../stores/state';
 
-    $: loadouts = $games[$current_game_index]?.categories[$current_category_index]?.loadouts ?? [];
+    $: currentGame = $games[$current_game_index] ?? { name: 'Loading...', categories: [], weapons: [] };
+    $: loadouts = currentGame.categories[$current_category_index]?.loadouts ?? [];
     $: currentLoadout = loadouts[$current_loadout_index] ?? { name: 'Loading...', weapon_ids: [] };
 </script>
 
@@ -41,7 +42,7 @@
             {#each currentLoadout.weapon_ids as id, i}
             <WeaponCard
                 id={id}
-                data={$weapons[id]}
+                data={currentGame.weapons[id] ?? null}
                 active={$current_weapon_index === i}
                 shooting={$shooting && $current_weapon_index === i}
             />

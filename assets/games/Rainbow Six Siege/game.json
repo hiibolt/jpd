@@ -1,0 +1,83 @@
+{
+  "name": "Rainbow Six Siege",
+  "categories": [
+    {
+      "name": "Attackers",
+      "loadouts": [
+        {
+          "name": "Twitch",
+          "weapon_ids": [
+            "R6_417",
+            "R6_P12"
+          ]
+        },
+        {
+          "name": "Ash",
+          "weapon_ids": [
+            "R6_R4-C",
+            "R6_417"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Defenders",
+      "loadouts": [
+        {
+          "name": "Jäger",
+          "weapon_ids": [
+            "R6_R4-C",
+            "R6_P12"
+          ]
+        },
+        {
+          "name": "Bandit",
+          "weapon_ids": [
+            "R6_417",
+            "R6_P12"
+          ]
+        }
+      ]
+    }
+  ],
+  "weapons": {
+    "R6_P12": {
+      "type": "SingleFire",
+      "config": {
+        "name": "P12",
+        "trigger_delay_ms": 80,
+        "recoil_completion_ms": 10,
+        "release_delay_ms": 25,
+        "dx": 0.5,
+        "dy": 22.0,
+        "mag_size": 17,
+        "autofire": true
+      }
+    },
+    "R6_R4-C": {
+      "type": "FullAutoStandard",
+      "config": {
+        "name": "R4-C",
+        "rpm": 860,
+        "first_shot_scale": 1.23,
+        "exponential_factor": 1.007,
+        "dx": -5.0,
+        "dy": 129.5,
+        "mag_size": 26
+      }
+    },
+    "R6_417": {
+      "type": "SingleFire",
+      "config": {
+        "name": "417",
+        "trigger_delay_ms": 90,
+        "recoil_completion_ms": 10,
+        "release_delay_ms": 25,
+        "dx": 0.0,
+        "dy": 46.5,
+        "mag_size": 21,
+        "autofire": true
+      }
+    }
+  }
+}

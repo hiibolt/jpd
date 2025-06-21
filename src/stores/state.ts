@@ -4,6 +4,7 @@ import { writable } from 'svelte/store';
 export type Game = {
     name: string;
     categories: Category[];
+    weapons: Weapons;
 };
 export type Category = {
     name: string;
@@ -42,7 +43,6 @@ export type Weapons = Record<string, Weapon>;
 
 
 // App-wide reactive state
-export const weapons = writable<Weapons>({});
 export const games = writable<Game[]>([]);
 export const current_game_index = writable(0);
 export const current_category_index = writable(0);
