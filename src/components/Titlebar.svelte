@@ -28,7 +28,13 @@
         background: transparent;
         z-index: 1000;
     }
+    .titlebar-button:hover {
+        transform: scale(1.15);
+        transition: transform 0.1s ease-in-out;
+    }
     .titlebar-button {
+        -webkit-filter: invert(100%);
+        filter: invert(100%);
         background: transparent;
         border: none;
         width: 20px;

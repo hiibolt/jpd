@@ -44,6 +44,7 @@ pub struct AppState {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SingleFireConfig {
     pub name: String,
+    pub description: Option<String>,
     pub trigger_delay_ms: u32,
     pub recoil_completion_ms: u32,
     pub release_delay_ms: u32,
@@ -55,6 +56,7 @@ pub struct SingleFireConfig {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FullAutoStandardConfig {
     pub name: String,
+    pub description: Option<String>,
     pub rpm: u128,
     pub first_shot_scale: f32,
     pub exponential_factor: f32,
@@ -77,6 +79,9 @@ pub struct Category {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Loadout {
     pub name: String,
+    pub icon_url: Option<String>,
+    #[serde(default)]
+    pub icon_only: bool,
     pub weapon_ids: Vec<String>,
 }
 #[derive(Serialize, Deserialize, Clone)]
@@ -213,6 +218,7 @@ fn handle_hold_lmb (
             eprintln!("Failed to send event: {}", e);
         }
 
+        println!("Game index {current_game_index}, category index {current_category_index}, loadout index {current_loadout_index}, weapon index {weapon_ind}");
         println!("Controlling weapon: {}", weapon_id);
         let mut rounds_fired = 1;
         match weapon {

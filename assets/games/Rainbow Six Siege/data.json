@@ -6,6 +6,8 @@
       "loadouts": [
         {
           "name": "Twitch",
+          "icon_url": "https://r6operators.marcopixel.eu/icons/svg/twitch.svg",
+          "icon_only": true,
           "weapon_ids": [
             "R6_417",
             "R6_P12"
@@ -13,6 +15,8 @@
         },
         {
           "name": "Ash",
+          "icon_url": "https://r6operators.marcopixel.eu/icons/svg/ash.svg",
+          "icon_only": true,
           "weapon_ids": [
             "R6_R4-C",
             "R6_417"
@@ -25,6 +29,8 @@
       "loadouts": [
         {
           "name": "Jäger",
+          "icon_url": "https://r6operators.marcopixel.eu/icons/svg/jager.svg",
+          "icon_only": true,
           "weapon_ids": [
             "R6_R4-C",
             "R6_P12"
@@ -32,6 +38,8 @@
         },
         {
           "name": "Bandit",
+          "icon_url": "https://r6operators.marcopixel.eu/icons/svg/bandit.svg",
+          "icon_only": true,
           "weapon_ids": [
             "R6_417",
             "R6_P12"
@@ -45,6 +53,7 @@
       "type": "FullAutoStandard",
       "config": {
         "name": "R4-C",
+        "description": "Compensator, Vertical Grip, ACOG",
         "rpm": 860,
         "first_shot_scale": 1.23,
         "exponential_factor": 1.007,
@@ -53,10 +62,25 @@
         "mag_size": 26
       }
     },
+    "R6_417": {
+      "type": "SingleFire",
+      "config": {
+        "name": "417",
+        "description": "Muzzle Brake, Vertical Grip, ACOG",
+        "trigger_delay_ms": 90,
+        "recoil_completion_ms": 10,
+        "release_delay_ms": 25,
+        "dx": 0.0,
+        "dy": 46.5,
+        "mag_size": 21,
+        "autofire": true
+      }
+    },
     "R6_P12": {
       "type": "SingleFire",
       "config": {
         "name": "P12",
+        "description": "Muzzle Brake",
         "trigger_delay_ms": 80,
         "recoil_completion_ms": 10,
         "release_delay_ms": 25,
@@ -64,19 +88,6 @@
         "dy": 22.0,
         "mag_size": 17,
         "autofire": true
-      }
-    },
-    "R6_417": {
-      "type": "SingleFire",
-      "config": {
-        "name": "417",
-        "trigger_delay_ms": 90,
-        "recoil_completion_ms": 10,
-        "release_delay_ms": 25,
-        "dx": 0.0,
-        "dy": 46.5,
-        "mag_size": 21,
-        "autofire": false
       }
     }
   }

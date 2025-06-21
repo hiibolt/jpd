@@ -31,9 +31,6 @@ async fn change_game (
 ) -> Result<usize, String> {
     if new_game_index < state.games.read_arc().len() {
         state.current_game_index.store(new_game_index, std::sync::atomic::Ordering::Relaxed);
-        state.current_category_index.store(0, std::sync::atomic::Ordering::Relaxed);
-        state.current_loadout_index.store(0, std::sync::atomic::Ordering::Relaxed);
-        state.current_weapon_index.store(0, std::sync::atomic::Ordering::Relaxed);
         println!("Changed game to index {}", new_game_index);
         return Ok(new_game_index);
     }

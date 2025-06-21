@@ -1,10 +1,10 @@
 <script lang="ts">
+    import type { Weapon } from '../stores/state';
     import WeaponStats from './WeaponStats.svelte';
 
-    export let id: string;
     export let active: boolean;
     export let shooting: boolean;
-    export let data: any;
+    export let weapon: Weapon;
 
     let open = active;
 
@@ -15,7 +15,7 @@
 
 <div class="weapon-card {active ? 'active' : ''} {open ? 'open' : ''}">
     <div class="weapon-header">
-        <span>{id}</span>
+        <span><b>{weapon.config.name}</b></span>
         <span class="weapon-status {shooting ? 'shooting' : 'not-shooting'}"></span>
     </div>
 
@@ -23,9 +23,9 @@
         {open ? 'Hide Details' : 'Show Details'}
     </button>
 
-    {#if data}
+    {#if weapon}
         {#if open}
-            <WeaponStats id={id} type={data.type} config={data.config} />
+            <WeaponStats id={weapon.config.name} type={weapon.type} config={weapon.config} />
         {/if}
     {:else}
         <p>Weapon data unavailable</p>

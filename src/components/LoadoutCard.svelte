@@ -1,22 +1,26 @@
 <script lang="ts">
-    export let name: string;
+    import type { Loadout } from "../stores/state";
+
+    export let loadout: Loadout;
     export let onClick: () => void;
 </script>
 
 <button class="loadout-card" onclick={onClick}>
-    {name}
+    {#if loadout.icon_url }
+        <img src={loadout.icon_url} alt={loadout.name} width="40" />
+    {/if}
+    {#if !loadout.icon_only }
+        {loadout.name}
+    {/if}
 </button>
 
 <style>
     .loadout-card {
         color: var(--fg);
-        width: 100%;
-        padding: 0.5rem 0.75rem;
+        border: none;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        border-radius: 8px;
-        border: 1px solid #ccc;
         background: var(--card-bg);
         cursor: pointer;
         text-align: center;

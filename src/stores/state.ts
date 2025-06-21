@@ -12,10 +12,13 @@ export type Category = {
 };
 export type Loadout = {
     name: string;
+    icon_url?: string;
+    icon_only: boolean;
     weapon_ids: string[];
 };
 export type SingleFireConfig = {
     name: string;
+    description?: string;
     trigger_delay_ms: number;
     recoil_completion_ms: number;
     release_delay_ms: number;
@@ -26,6 +29,7 @@ export type SingleFireConfig = {
 };
 export type FullAutoStandardConfig = {
     name: string;
+    description?: string;
     rpm: number;
     first_shot_scale: number;
     exponential_factor: number;

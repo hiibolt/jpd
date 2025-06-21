@@ -13,7 +13,7 @@
     $: open = $current_category_index === index;
 </script>
 
-<button class="loadout-card" onclick={onclick}>
+<button class="category-card {open ? 'active' : ''}" onclick={onclick}>
     <div class="category-name">
         {category.name}
     </div>
@@ -21,7 +21,7 @@
         <div class="category-loadouts">
             {#if category.loadouts.length > 1}
                 {#each category.loadouts as loadout, index}
-                    <LoadoutCard name={loadout.name} onClick={() => changeLoadout(index)} />
+                    <LoadoutCard loadout={loadout} onClick={() => changeLoadout(index)} />
                 {/each}
             {:else}
                 <p>Loading loadouts...</p>
@@ -38,10 +38,10 @@
     .category-loadouts {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.5rem;
+        gap: 0.15rem;
         margin-top: 0.5rem;
     }
-    .loadout-card {
+    .category-card {
         color: var(--fg);
         width: 100%;
         padding: 0.5rem 0.75rem;
@@ -54,7 +54,11 @@
         text-align: center;
         transition: transform 0.2s, box-shadow 0.2s;
     }
-    .loadout-card:hover {
+    .category-card.active {
+        transform: scale(1.01);
+        border-color: var(--accent);
+    }
+    .category-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }

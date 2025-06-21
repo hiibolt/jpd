@@ -13,7 +13,7 @@
     $: open = $current_game_index === index;
 </script>
 
-<button class="game-card" onclick={onclick}>
+<button class="game-card {open ? 'open' : ''}" onclick={onclick}>
     <div class="game-name">
         {game.name}
     </div>
@@ -57,6 +57,10 @@
         cursor: pointer;
         text-align: center;
         transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .game-card.open {
+        transform: scale(1.01);
+        border-color: var(--accent);
     }
     .game-card:hover {
         transform: translateY(-2px);

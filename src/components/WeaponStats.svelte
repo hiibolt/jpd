@@ -17,6 +17,9 @@
 
 <div class="stats-group">
     {#if type === 'SingleFire'}
+        {#if config.description}
+            <p><b><i>{config.description}</i></b></p>
+        {/if}
         <p>Trigger Delay: {config.trigger_delay_ms} ms</p>
         <p>Recoil Completion: {config.recoil_completion_ms} ms</p>
         <p>Release Delay: {config.release_delay_ms} ms</p>
@@ -26,6 +29,9 @@
             {config.autofire ? 'Disable Autofire' : 'Enable Autofire'}
         </button>
     {:else if type === 'FullAutoStandard'}
+        {#if config.description}
+            <p><b><i>{config.description}</i></b></p>
+        {/if}
         <p>RPM: {config.rpm}</p>
         <p>First Shot Scale: {config.first_shot_scale}</p>
         <p>Exponential Factor: {config.exponential_factor}</p>
