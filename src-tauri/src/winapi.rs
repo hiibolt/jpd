@@ -26,27 +26,26 @@ pub enum AppEvent {
 pub struct GlobalConfig {
     pub require_right_hold: bool,
 }
-#[derive(Clone, Serialize)]
-pub struct Loadout {
-    pub name: String,
-    pub weapon_ids: Vec<String>,
-}
 #[derive(Clone)]
 pub struct AppState {
-    pub weapons: Arc<Mutex<HashMap<String, Weapon>>>,
-    pub loadouts: Arc<Vec<Loadout>>,
-    pub global_config: Arc<GlobalConfig>,
+    pub games:         Arc<Vec<Game>>,
+    pub weapons:       Arc<Mutex<HashMap<String, Weapon>>>,
 
-    pub events_channel_sender: Arc<Sender<AppEvent>>,
+    pub global_config: Arc<GlobalConfig>,
+    
+    pub events_channel_sender:   Arc<Sender<AppEvent>>,
     pub events_channel_reciever: Arc<Mutex<Receiver<AppEvent>>>,
 
-    pub left_hold_active: Arc<AtomicBool>,
+    pub left_hold_active:  Arc<AtomicBool>,
     pub right_hold_active: Arc<AtomicBool>,
-    pub current_loadout_index: Arc<AtomicUsize>,
-    pub current_weapon_index: Arc<AtomicUsize>,
+    pub current_game_index:     Arc<AtomicUsize>,
+    pub current_category_index: Arc<AtomicUsize>,
+    pub current_loadout_index:  Arc<AtomicUsize>,
+    pub current_weapon_index:   Arc<AtomicUsize>,
 }
 #[derive(Serialize, Clone)]
 pub struct SingleFireConfig {
+    pub name: String,
     pub trigger_delay_ms: u32,
     pub recoil_completion_ms: u32,
     pub release_delay_ms: u32,
@@ -57,6 +56,7 @@ pub struct SingleFireConfig {
 }
 #[derive(Serialize, Clone)]
 pub struct FullAutoStandardConfig {
+    pub name: String,
     pub rpm: u128,
     pub first_shot_scale: f32,
     pub exponential_factor: f32,
@@ -65,6 +65,21 @@ pub struct FullAutoStandardConfig {
     pub mag_size: u32,
 }
 
+#[derive(Clone, Serialize)]
+pub struct Game {
+    pub name: String,
+    pub categories: Vec<Category>,
+}
+#[derive(Clone, Serialize)]
+pub struct Category {
+    pub name: String,
+    pub loadouts: Vec<Loadout>,
+}
+#[derive(Clone, Serialize)]
+pub struct Loadout {
+    pub name: String,
+    pub weapon_ids: Vec<String>,
+}
 #[derive(Serialize, Clone)]
 #[serde(tag = "type", content = "config")]
 pub enum Weapon {
@@ -124,16 +139,18 @@ fn move_down (
     }
 }
 fn handle_hold_lmb (
+    games: Arc<Vec<Game>>,
     weapons: HashMap<String, Weapon>,
-    loadouts: Arc<Vec<Loadout>>,
     global_config: Arc<GlobalConfig>,
 
     events_channel_sender: Arc<Sender<AppEvent>>,
 
     left_hold_active: Arc<AtomicBool>,
     right_hold_active: Arc<AtomicBool>,
-    current_loadout_index: Arc<AtomicUsize>,
-    current_weapon_index: Arc<AtomicUsize>,
+    current_game_index:     Arc<AtomicUsize>,
+    current_category_index: Arc<AtomicUsize>,
+    current_loadout_index:  Arc<AtomicUsize>,
+    current_weapon_index:   Arc<AtomicUsize>,
 ) {
     'outer: loop {
         // Check that the right button is also held down
@@ -152,24 +169,45 @@ fn handle_hold_lmb (
             continue 'outer;
         }
 
-        let loadout = loadouts
-            .get(current_loadout_index.load(Ordering::SeqCst))
-            .unwrap_or_else(|| {
-                // If the loadout is not found, default to the first one
-                &loadouts[0]
-            });
+        // Get the current game
+        let current_game_index = current_game_index.load(Ordering::SeqCst);
+        if current_game_index >= games.len() {
+            eprintln!("Invalid game index: {}", current_game_index);
+            return;
+        }
+        let current_game = &games[current_game_index];
+
+        // Get the current category
+        let current_category_index = current_category_index.load(Ordering::SeqCst);
+        if current_category_index >= current_game.categories.len() {
+            eprintln!("Invalid category index: {}", current_category_index);
+            return;
+        }
+        let current_category = &current_game.categories[current_category_index];
+
+        // Get the current loadout
+        let current_loadout_index = current_loadout_index.load(Ordering::SeqCst);
+        if current_loadout_index >= current_category.loadouts.len() {
+            eprintln!("Invalid loadout index: {}", current_loadout_index);
+            return;
+        }
+        let current_loadout = &current_category.loadouts[current_loadout_index];
+
+        // Get the current weapon index
         let weapon_ind = current_weapon_index.load(Ordering::SeqCst);
-        let weapon_id = loadout.weapon_ids
-            .get(weapon_ind)
-            .unwrap_or_else(|| {
-                // Set the weapon to the first one if the index is out of bounds
-                current_weapon_index.store(0, Ordering::SeqCst);
-                &loadout.weapon_ids[0]
-            });
-        let weapon = weapons.get(weapon_id).unwrap_or_else(|| {
-            // If the weapon is not found, default to the first one
-            &weapons.values().next().expect("No weapons available")
-        });
+        if weapon_ind >= current_loadout.weapon_ids.len() {
+            eprintln!("Invalid weapon index: {}", weapon_ind);
+            return;
+        }
+        let weapon_id = &current_loadout.weapon_ids[weapon_ind];
+        // Get the weapon configuration
+        let weapon = match weapons.get(weapon_id) {
+            Some(weapon) => weapon.clone(),
+            None => {
+                eprintln!("Weapon not found: {}", weapon_id);
+                return;
+            }
+        };
 
         // Emit an event that shooting has started
         if let Err(e) = events_channel_sender.send(AppEvent::StartedShooting { weapon_ind }) {
@@ -374,27 +412,31 @@ unsafe extern "system" fn wnd_proc(
                         // If the hold is not already active, start a new thread
                         if !state.left_hold_active.load(Ordering::SeqCst) {
                             state.left_hold_active.store(true, Ordering::SeqCst);
+                            let games_clone = state.games.clone();
                             let weapons_clone = state.weapons.lock().clone();
-                            let loadouts_clone = state.loadouts.clone();
                             let global_config_clone = state.global_config.clone();
 
                             let events_channel_sender_clone = state.events_channel_sender.clone();
 
                             let left_hold_clone = state.left_hold_active.clone();
                             let right_hold_clone = state.right_hold_active.clone();
-                            let loadout_clone = state.current_loadout_index.clone();
+                            let current_game_index_clone = state.current_game_index.clone();
+                            let current_category_index_clone = state.current_category_index.clone();
+                            let current_loadout_clone = state.current_loadout_index.clone();
                             let current_index_clone = state.current_weapon_index.clone();
 
                             thread::spawn(|| { handle_hold_lmb(
+                                games_clone,
                                 weapons_clone,
-                                loadouts_clone,
                                 global_config_clone,
 
                                 events_channel_sender_clone,
                                 
                                 left_hold_clone,
                                 right_hold_clone,
-                                loadout_clone,
+                                current_game_index_clone,
+                                current_category_index_clone,
+                                current_loadout_clone,
                                 current_index_clone
                             ) });
                         }

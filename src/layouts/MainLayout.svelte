@@ -1,16 +1,22 @@
 <script lang="ts">
     import Titlebar from '../components/Titlebar.svelte';
     import Banner from '../components/Banner.svelte';
+    import GameCard from '../components/GameCard.svelte';
     import LoadoutCard from '../components/LoadoutCard.svelte';
     import WeaponCard from '../components/WeaponCard.svelte';
     import AccountPanel from '../components/AccountPanel.svelte';
     import Background from '../components/Background.svelte';
 
-    import { loadouts, weapons, current_loadout_index, current_weapon_index, shooting } from '../stores/state';
+    import {
+      games, weapons, 
+      current_loadout_index, current_weapon_index, current_category_index, current_game_index,
+      shooting 
+    } from '../stores/state';
 
     import { changeLoadout } from '../lib/api';
 
-    $: currentLoadout = $loadouts[$current_loadout_index] ?? { name: 'Loading...', weapon_ids: [] };
+    let loadouts = $games[$current_game_index]?.categories[$current_category_index]?.loadouts ?? [];
+    $: currentLoadout = loadouts[$current_loadout_index] ?? { name: 'Loading...', weapon_ids: [] };
 </script>
 
 <Background />
@@ -21,8 +27,22 @@
     <div class="main-layout">
         <!-- Loadouts -->
         <div class="left-column card">
-        {#if $loadouts.length > 1}
-            {#each $loadouts as loadout, index}
+        {#if $games.length > 0}
+          {#each $games as game, index}
+            <GameCard
+                game={game}
+                onClick={() => {
+                    current_game_index.set(index);
+                    current_category_index.set(0); // Reset to first category
+                    current_loadout_index.set(0); // Reset to first loadout
+                }}
+            />
+          {/each}
+        {:else}
+            <h2>Loading Games...</h2>
+        {/if}
+        {#if loadouts.length > 1}
+            {#each loadouts as loadout, index}
             <LoadoutCard name={loadout.name} onClick={() => changeLoadout(index)} />
             {/each}
         {:else}

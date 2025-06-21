@@ -1,7 +1,7 @@
 // src/lib/api.ts
 import { invoke, Channel } from '@tauri-apps/api/core';
 import {
-    loadouts,
+    games,
     weapons,
     current_loadout_index,
     current_weapon_index,
@@ -25,8 +25,8 @@ type Event = SwitchedWeaponEvent | StartedShootingEvent | StoppedShootingEvent;
 let channel: Channel<Event>;
 
 export async function initialize() {
-    const loadedLoadouts = await invoke('get_loadouts');
-    loadouts.set(loadedLoadouts as any);
+    const loadedLoadouts = await invoke('get_games');
+    games.set(loadedLoadouts as any);
 
     const loadedWeapons = await invoke('get_weapons');
     weapons.set(loadedWeapons as any);
