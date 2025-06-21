@@ -4,14 +4,14 @@ use std::sync::{mpsc::{Sender, Receiver}, atomic::AtomicUsize};
 use std::{mem, ptr, thread, time::Duration};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use parking_lot::{Mutex, RwLock};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use winapi::shared::hidusage::*;
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::winuser::*;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(tag = "event", content = "data")]
 pub enum AppEvent {
     SwitchedWeapon {
@@ -22,7 +22,7 @@ pub enum AppEvent {
     },
     StoppedShooting
 }
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct GlobalConfig {
     pub require_right_hold: bool,
 }
@@ -41,7 +41,7 @@ pub struct AppState {
     pub current_loadout_index:  Arc<AtomicUsize>,
     pub current_weapon_index:   Arc<AtomicUsize>,
 }
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SingleFireConfig {
     pub name: String,
     pub trigger_delay_ms: u32,
@@ -52,7 +52,7 @@ pub struct SingleFireConfig {
     pub mag_size: u32,
     pub autofire: bool,
 }
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct FullAutoStandardConfig {
     pub name: String,
     pub rpm: u128,
@@ -63,23 +63,23 @@ pub struct FullAutoStandardConfig {
     pub mag_size: u32,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Game {
     pub name:       String,
     pub categories: Vec<Category>,
     pub weapons:    HashMap<String, Weapon>,
 }
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Category {
     pub name: String,
     pub loadouts: Vec<Loadout>,
 }
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Loadout {
     pub name: String,
     pub weapon_ids: Vec<String>,
 }
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "config")]
 pub enum Weapon {
     SingleFire(SingleFireConfig),

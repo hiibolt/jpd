@@ -2,7 +2,6 @@
     import Titlebar from '../components/Titlebar.svelte';
     import Banner from '../components/Banner.svelte';
     import GameCard from '../components/GameCard.svelte';
-    import LoadoutCard from '../components/LoadoutCard.svelte';
     import WeaponCard from '../components/WeaponCard.svelte';
     import AccountPanel from '../components/AccountPanel.svelte';
     import Background from '../components/Background.svelte';
@@ -13,9 +12,9 @@
       shooting 
     } from '../stores/state';
 
-    $: currentGame = $games[$current_game_index] ?? { name: 'Loading...', categories: [], weapons: [] };
+    $: currentGame = $games[$current_game_index] ?? { name: 'Game Not Foun', categories: [], weapons: [] };
     $: loadouts = currentGame.categories[$current_category_index]?.loadouts ?? [];
-    $: currentLoadout = loadouts[$current_loadout_index] ?? { name: 'Loading...', weapon_ids: [] };
+    $: currentLoadout = loadouts[$current_loadout_index] ?? { name: 'Loadouts Not Found', weapon_ids: [] };
 </script>
 
 <Background />

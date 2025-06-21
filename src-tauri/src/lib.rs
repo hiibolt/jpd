@@ -4,16 +4,11 @@ use parking_lot::{Mutex, RwLock};
 use tauri::{ipc::Channel, Builder, Manager};
 use window_vibrancy::apply_acrylic;
 
-use std::{collections::HashMap, path::Path, sync::{atomic::{AtomicBool, AtomicUsize}, Arc}};
+use std::{path::Path, sync::{atomic::{AtomicBool, AtomicUsize}, Arc}};
 
-use crate::winapi::{main_recoil, AppEvent, AppState, Category, FullAutoStandardConfig, Game, GlobalConfig, Loadout, SingleFireConfig, Weapon};
+use crate::winapi::{main_recoil, AppEvent, AppState, Game, GlobalConfig, Weapon};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    println!("Greeted from Rust: {}", name);
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
 #[tauri::command]
 fn get_games(state: tauri::State<'_, AppState>) -> Vec<Game> {
     state.games.read_arc().clone()
@@ -115,131 +110,77 @@ fn set_autofire(
         _ => return Err(format!("Weapon {} is not a single-fire weapon", weapon_id)),
     }
 
+    // Save the updated game data
+    if let Err(e) = save_data((*state).clone()) {
+        return Err(format!("Failed to save game data: {}", e));
+    }
+
     println!("Set autofire for weapon {} to {}", weapon, enabled);
     Ok(())
 }
+fn load_data() -> Result<(Vec<Game>, GlobalConfig), String> {
+    let assets_dir_path = Path::new("..").join("assets");
+    let config_path = assets_dir_path.join("config.json");
+    let games_dir_path = assets_dir_path.join("games");
 
-async fn save_game_data (
+    // Load global config from `assets/config.json`
+    let global_config: GlobalConfig = serde_json::from_str(
+        &std::fs::read_to_string(config_path).map_err(|e| e.to_string())?
+    ).map_err(|e| e.to_string())?;
+
+    // Load each game's data from `assets/<game_name>/data.json`
+    let mut games = Vec::new();
+    for entry in std::fs::read_dir(games_dir_path).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        if entry.file_type().map_err(|e| e.to_string())?.is_dir() {
+            let game_name = entry.file_name().to_string_lossy().to_string();
+            let game_data_path = entry.path().join("data.json");
+
+            match std::fs::read_to_string(&game_data_path) {
+                Ok(data) => match serde_json::from_str::<Game>(&data) {
+                    Ok(game) => games.push(game),
+                    Err(e) => return Err(format!("Failed to parse game data for {}: {}", game_name, e)),
+                },
+                Err(_) => return Err(format!("Failed to read game data for {}", game_name)),
+            }
+        }
+    }
+
+    Ok((games, global_config))
+}
+fn save_data(
     state: AppState
 ) -> Result<(), String> {
     let assets_dir_path = Path::new("..").join("assets");
 
     // Save config to `assets/config.json`
     let global_config: GlobalConfig = (*state.global_config).clone();
-    tokio::fs::write(
+    std::fs::write(
         assets_dir_path.join("config.json"),
         serde_json::to_string_pretty(&global_config).map_err(|e| e.to_string())?
-    ).await.map_err(|e| e.to_string())?;
+    ).map_err(|e| e.to_string())?;
 
-    // Save each game's data to `assets/<game_name>/game.json`
+    // Save each game's data to `assets/<game_name>/data.json`
     let games_dir_path = assets_dir_path.join("games");
     for game in state.games.read_arc().iter() {
         let game_path = games_dir_path.join(&game.name);
-        
-        tokio::fs::create_dir_all(&game_path).await.map_err(|e| e.to_string())?;
-        tokio::fs::write(
-            game_path.join("game.json"),
-            serde_json::to_string_pretty(game).map_err(|e| e.to_string())?
-        ).await.map_err(|e| e.to_string())?;
+        let game_contents = serde_json::to_string_pretty(game)
+            .map_err(|e| e.to_string())?;
+
+        std::fs::create_dir_all(&game_path).map_err(|e| e.to_string())?;
+        std::fs::write(
+            game_path.join("data.json"),
+            game_contents
+        ).map_err(|e| e.to_string())?;
     }
 
     Ok(())
 }
 
 async fn setup() -> AppState {
-    let games = Vec::from([
-        Game {
-            name: "Rainbow Six Siege".to_string(),
-            categories: vec!(
-                Category {
-                    name: "Attackers".to_string(),
-                    loadouts: vec!(
-                        Loadout {
-                            name: "Twitch".to_string(),
-                            weapon_ids: vec!(String::from("R6_417"), String::from("R6_P12")),
-                        },
-                        Loadout {
-                            name: "Ash".to_string(),
-                            weapon_ids: vec!(String::from("R6_R4-C"), String::from("R6_417")),
-                        },
-                    ),
-                },
-                Category {
-                    name: "Defenders".to_string(),
-                    loadouts: vec!(
-                        Loadout {
-                            name: "Jäger".to_string(),
-                            weapon_ids: vec!(String::from("R6_R4-C"), String::from("R6_P12")),
-                        },
-                        Loadout {
-                            name: "Bandit".to_string(),
-                            weapon_ids: vec!(String::from("R6_417"), String::from("R6_P12")),
-                        },
-                    ),
-                },
-            ),
-            weapons: HashMap::from([
-                (String::from("R6_R4-C"), Weapon::FullAutoStandard(FullAutoStandardConfig {
-                    name: String::from("R4-C"),
-                    rpm: 860,
-                    first_shot_scale: 1.23,
-                    exponential_factor: 1.007,
-                    dx: -5.0,
-                    dy: 129.5,
-                    mag_size: 26,
-                })),
-                (String::from("R6_417"), Weapon::SingleFire(SingleFireConfig {
-                    name: String::from("417"),
-                    trigger_delay_ms: 90,
-                    recoil_completion_ms: 10,
-                    release_delay_ms: 25,
-                    dx: 0.0,
-                    dy: 46.5,
-                    mag_size: 21,
-                    autofire: true,
-                })),
-                (String::from("R6_P12"), Weapon::SingleFire(SingleFireConfig {
-                    name: String::from("P12"),
-                    trigger_delay_ms: 80,
-                    recoil_completion_ms: 10,
-                    release_delay_ms: 25,
-                    dx: 0.5,
-                    dy: 22.0,
-                    mag_size: 17,
-                    autofire: true,
-                })),
-            ])
-        },
-        Game {
-            name: "Rust".to_string(),
-            categories: vec!( ),
-            weapons: HashMap::from([
-                (String::from("Rust_AK47"), Weapon::FullAutoStandard(FullAutoStandardConfig {
-                    name: String::from("AK-47"),
-                    rpm: 600,
-                    first_shot_scale: 1.15,
-                    exponential_factor: 1.005,
-                    dx: -3.0,
-                    dy: 100.0,
-                    mag_size: 30,
-                })),
-                (String::from("Rust_M4A4"), Weapon::SingleFire(SingleFireConfig {
-                    name: String::from("M4A4"),
-                    trigger_delay_ms: 70,
-                    recoil_completion_ms: 8,
-                    release_delay_ms: 20,
-                    dx: 0.0,
-                    dy: 40.0,
-                    mag_size: 30,
-                    autofire: true,
-                })),
-            ]),
-        },
-    ]);
+    let (games, global_config) = load_data()
+        .expect("Failed to load game data!");
 
-    let global_config = GlobalConfig {
-        require_right_hold: true,
-    };
     let (event_tx, event_rx) = std::sync::mpsc::channel();
     let state = AppState {
         games:         Arc::new(RwLock::new(games)),
@@ -257,10 +198,6 @@ async fn setup() -> AppState {
     };
     let state_cloned = state.clone();
 
-    save_game_data(state_cloned.clone())
-        .await
-        .expect("Failed to save game data");
-
     tokio::spawn(async move {
         main_recoil(state_cloned);
     });
@@ -271,11 +208,12 @@ pub fn run() {
     Builder::default()
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            greet,
             get_games,
+
             change_game,
             change_category,
             change_loadout,
+
             set_autofire,
             start_channel_reads
         ])

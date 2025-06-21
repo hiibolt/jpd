@@ -2,6 +2,18 @@
   "name": "Rust",
   "categories": [],
   "weapons": {
+    "Rust_AK47": {
+      "type": "FullAutoStandard",
+      "config": {
+        "name": "AK-47",
+        "rpm": 600,
+        "first_shot_scale": 1.15,
+        "exponential_factor": 1.005,
+        "dx": -3.0,
+        "dy": 100.0,
+        "mag_size": 30
+      }
+    },
     "Rust_M4A4": {
       "type": "SingleFire",
       "config": {
@@ -13,18 +25,6 @@
         "dy": 40.0,
         "mag_size": 30,
         "autofire": true
-      }
-    },
-    "Rust_AK47": {
-      "type": "FullAutoStandard",
-      "config": {
-        "name": "AK-47",
-        "rpm": 600,
-        "first_shot_scale": 1.15,
-        "exponential_factor": 1.005,
-        "dx": -3.0,
-        "dy": 100.0,
-        "mag_size": 30
       }
     }
   }

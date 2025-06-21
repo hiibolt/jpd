@@ -41,6 +41,18 @@
     }
   ],
   "weapons": {
+    "R6_R4-C": {
+      "type": "FullAutoStandard",
+      "config": {
+        "name": "R4-C",
+        "rpm": 860,
+        "first_shot_scale": 1.23,
+        "exponential_factor": 1.007,
+        "dx": -5.0,
+        "dy": 129.5,
+        "mag_size": 26
+      }
+    },
     "R6_P12": {
       "type": "SingleFire",
       "config": {
@@ -54,18 +66,6 @@
         "autofire": true
       }
     },
-    "R6_R4-C": {
-      "type": "FullAutoStandard",
-      "config": {
-        "name": "R4-C",
-        "rpm": 860,
-        "first_shot_scale": 1.23,
-        "exponential_factor": 1.007,
-        "dx": -5.0,
-        "dy": 129.5,
-        "mag_size": 26
-      }
-    },
     "R6_417": {
       "type": "SingleFire",
       "config": {
@@ -76,7 +76,7 @@
         "dx": 0.0,
         "dy": 46.5,
         "mag_size": 21,
-        "autofire": true
+        "autofire": false
       }
     }
   }
