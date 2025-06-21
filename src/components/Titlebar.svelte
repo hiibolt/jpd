@@ -3,13 +3,13 @@
 </script>
 
 <div class="titlebar" data-tauri-drag-region>
-    <button class="titlebar-button" aria-label="Minimize" on:click={minimize}>
+    <button class="titlebar-button" aria-label="Minimize" onclick={minimize}>
         <img src="https://api.iconify.design/mdi:window-minimize.svg" alt="minimize" />
     </button>
-    <button class="titlebar-button" aria-label="Maximize" on:click={maximize}>
+    <button class="titlebar-button" aria-label="Maximize" onclick={maximize}>
         <img src="https://api.iconify.design/mdi:window-maximize.svg" alt="maximize" />
     </button>
-    <button class="titlebar-button" aria-label="Close" on:click={close}>
+    <button class="titlebar-button" aria-label="Close" onclick={close}>
         <img src="https://api.iconify.design/mdi:close.svg" alt="close" />
     </button>
 </div>

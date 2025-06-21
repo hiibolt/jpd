@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::sync::{mpsc::{Sender, Receiver}, atomic::AtomicUsize};
 use std::{mem, ptr, thread, time::Duration};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use parking_lot::Mutex;
 use serde::Serialize;
-use tokio::sync::Mutex;
 use winapi::shared::hidusage::*;
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
@@ -33,7 +33,7 @@ pub struct Loadout {
 }
 #[derive(Clone)]
 pub struct AppState {
-    pub weapons: Arc<HashMap<String, Weapon>>,
+    pub weapons: Arc<Mutex<HashMap<String, Weapon>>>,
     pub loadouts: Arc<Vec<Loadout>>,
     pub global_config: Arc<GlobalConfig>,
 
@@ -124,7 +124,7 @@ fn move_down (
     }
 }
 fn handle_hold_lmb (
-    weapons: Arc<HashMap<String, Weapon>>,
+    weapons: HashMap<String, Weapon>,
     loadouts: Arc<Vec<Loadout>>,
     global_config: Arc<GlobalConfig>,
 
@@ -138,8 +138,6 @@ fn handle_hold_lmb (
     'outer: loop {
         // Check that the right button is also held down
         if global_config.require_right_hold && !right_hold_active.load(Ordering::SeqCst) {
-            println!("Right button not held, continuing hold loop.");
-
             // Emit an event that shooting has stopped
             if let Err(e) = events_channel_sender.send(AppEvent::StoppedShooting) {
                 eprintln!("Failed to send event: {}", e);
@@ -147,7 +145,6 @@ fn handle_hold_lmb (
 
             if !left_hold_active.load(Ordering::SeqCst) {
                 // If the left button is not held, exit the loop
-                println!("Left button not held either, exiting hold loop.");
                 return;
             }
 
@@ -222,7 +219,7 @@ fn handle_hold_lmb (
                 let recoil_completion = Duration::from_millis(config.recoil_completion_ms as u64);
                 let release_delay = Duration::from_millis(config.release_delay_ms as u64);
 
-                'inner: while left_hold_active.load(Ordering::SeqCst) && !(global_config.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) {
+                while left_hold_active.load(Ordering::SeqCst) && !(global_config.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) {
                     // Move down for the next shot
                     move_down(
                         config.dx,
@@ -236,7 +233,7 @@ fn handle_hold_lmb (
                         !config.autofire ||
                         (global_config.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) 
                     {
-                        break 'inner;
+                        break 'outer;
                     }
 
                     // Pull the trigger
@@ -377,7 +374,7 @@ unsafe extern "system" fn wnd_proc(
                         // If the hold is not already active, start a new thread
                         if !state.left_hold_active.load(Ordering::SeqCst) {
                             state.left_hold_active.store(true, Ordering::SeqCst);
-                            let weapons_clone = state.weapons.clone();
+                            let weapons_clone = state.weapons.lock().clone();
                             let loadouts_clone = state.loadouts.clone();
                             let global_config_clone = state.global_config.clone();
 

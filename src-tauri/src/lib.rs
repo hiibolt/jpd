@@ -1,5 +1,6 @@
 mod winapi;
 
+use parking_lot::Mutex;
 use tauri::{ipc::Channel, Builder, Manager};
 use window_vibrancy::apply_acrylic;
 
@@ -19,14 +20,14 @@ fn get_loadouts(state: tauri::State<'_, AppState>) -> Vec<Loadout> {
 }
 #[tauri::command]
 fn get_weapons(state: tauri::State<'_, AppState>) -> HashMap<String, Weapon> {
-    (*state.weapons).clone()
+    (*state.weapons.lock()).clone()
 }
 #[tauri::command]
 async fn start_channel_reads (
     state: tauri::State<'_, AppState>,
     channel: Channel<AppEvent>,
 ) -> Result<String, String> {
-    while let Ok(event) = state.events_channel_reciever.lock().await.recv() {
+    while let Ok(event) = state.events_channel_reciever.lock().recv() {
         channel.send(event).expect("Failed to send event");
     }
 
@@ -47,6 +48,21 @@ async fn change_loadout (
     let current_loadout = &state.loadouts[new_loadout_index];
     println!("Changed to loadout: {}", current_loadout.name);
     Ok(new_loadout_index)
+}
+#[tauri::command]
+fn set_autofire(
+    state: tauri::State<'_, AppState>,
+    enabled: bool,
+    weapon: String
+) -> Result<(), String> {
+    if let Some(weapon_config) = state.weapons.lock().get_mut(&weapon) {
+        if let Weapon::SingleFire(config) = weapon_config {
+            config.autofire = enabled;
+            println!("Set autofire for {} to {}", weapon, enabled);
+            return Ok(());
+        }
+    }
+    Err(format!("Weapon {} not found or not a single-fire weapon", weapon))
 }
 
 async fn setup() -> AppState {
@@ -97,12 +113,12 @@ async fn setup() -> AppState {
     };
     let (event_tx, event_rx) = std::sync::mpsc::channel();
     let state = AppState {
-        weapons: Arc::new(weapons),
+        weapons: Arc::new(Mutex::new(weapons)),
         loadouts: Arc::new(loadouts),
         global_config: Arc::new(global_config),
 
         events_channel_sender: Arc::new(event_tx),
-        events_channel_reciever: Arc::new(tokio::sync::Mutex::new(event_rx)),
+        events_channel_reciever: Arc::new(Mutex::new(event_rx)),
 
         left_hold_active: Arc::new(AtomicBool::new(false)),
         right_hold_active: Arc::new(AtomicBool::new(false)),
@@ -125,6 +141,7 @@ pub fn run() {
             get_loadouts,
             change_loadout,
             get_weapons,
+            set_autofire,
             start_channel_reads
         ])
         .setup(|app| {

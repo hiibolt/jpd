@@ -19,13 +19,13 @@
         <span class="weapon-status {shooting ? 'shooting' : 'not-shooting'}"></span>
     </div>
 
-    <button class="weapon-card-toggle" on:click={toggle}>
+    <button class="weapon-card-toggle" onclick={toggle}>
         {open ? 'Hide Details' : 'Show Details'}
     </button>
 
     {#if data}
         {#if open}
-            <WeaponStats type={data.type} config={data.config} />
+            <WeaponStats id={id} type={data.type} config={data.config} />
         {/if}
     {:else}
         <p>Weapon data unavailable</p>

@@ -3,7 +3,7 @@
     export let onClick: () => void;
 </script>
 
-<button class="loadout-card" on:click={onClick}>
+<button class="loadout-card" onclick={onClick}>
     {name}
 </button>
 
