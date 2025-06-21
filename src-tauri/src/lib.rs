@@ -1,4 +1,6 @@
 mod winapi;
+mod recoil;
+mod types;
 
 use parking_lot::{Mutex, RwLock};
 use tauri::{ipc::Channel, Builder, Manager};
@@ -6,7 +8,8 @@ use window_vibrancy::apply_acrylic;
 
 use std::{path::Path, sync::{atomic::{AtomicBool, AtomicUsize}, Arc}};
 
-use crate::winapi::{main_recoil, AppEvent, AppState, Game, GlobalConfig, Weapon};
+use crate::winapi::main_recoil;
+use crate::types::{AppEvent, AppState, Game, GlobalConfig, Weapon};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
