@@ -34,6 +34,39 @@ async fn start_channel_reads (
     Err(String::from("Channel reads closed early?"))
 }
 #[tauri::command]
+async fn change_game (
+    state: tauri::State<'_, AppState>,
+    new_game_index: usize
+) -> Result<usize, String> {
+    if new_game_index < state.games.len() {
+        state.current_game_index.store(new_game_index, std::sync::atomic::Ordering::Relaxed);
+        state.current_category_index.store(0, std::sync::atomic::Ordering::Relaxed);
+        state.current_loadout_index.store(0, std::sync::atomic::Ordering::Relaxed);
+        state.current_weapon_index.store(0, std::sync::atomic::Ordering::Relaxed);
+        println!("Changed game to index {}", new_game_index);
+        return Ok(new_game_index);
+    }
+
+    Err(format!("Invalid game index: {}", new_game_index))
+}
+#[tauri::command]
+async fn change_category (
+    state: tauri::State<'_, AppState>,
+    new_category_index: usize
+) -> Result<usize, String> {
+    let current_game_index = state.current_game_index.load(std::sync::atomic::Ordering::Relaxed);
+
+    if let Some(game) = state.games.get(current_game_index) {
+        if new_category_index < game.categories.len() {
+            state.current_category_index.store(new_category_index, std::sync::atomic::Ordering::Relaxed);
+            println!("Changed category to index {}", new_category_index);
+            return Ok(new_category_index);
+        }
+    }
+
+    Err(format!("Invalid category index: {}", new_category_index))
+}
+#[tauri::command]
 async fn change_loadout (
     state: tauri::State<'_, AppState>,
     new_loadout_index: usize
@@ -50,6 +83,7 @@ async fn change_loadout (
             }
         }
     }
+
     Err(format!("Invalid loadout index: {}", new_loadout_index))
 }
 #[tauri::command]
@@ -132,6 +166,37 @@ async fn setup() -> AppState {
                 },
             )
         },
+        Game {
+            name: "Rainbow Six Siege".to_string(),
+            categories: vec!(
+                Category {
+                    name: "Attackers".to_string(),
+                    loadouts: vec!(
+                        Loadout {
+                            name: "Twitch".to_string(),
+                            weapon_ids: vec!(String::from("R6_417"), String::from("R6_P12")),
+                        },
+                        Loadout {
+                            name: "Ash".to_string(),
+                            weapon_ids: vec!(String::from("R6_R4-C"), String::from("R6_417")),
+                        },
+                    ),
+                },
+                Category {
+                    name: "Defenders".to_string(),
+                    loadouts: vec!(
+                        Loadout {
+                            name: "Jäger".to_string(),
+                            weapon_ids: vec!(String::from("R6_R4-C"), String::from("R6_P12")),
+                        },
+                        Loadout {
+                            name: "Bandit".to_string(),
+                            weapon_ids: vec!(String::from("R6_417"), String::from("R6_P12")),
+                        },
+                    ),
+                },
+            )
+        },
     ]);
 
     let global_config = GlobalConfig {
@@ -167,6 +232,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             get_games,
+            change_game,
+            change_category,
             change_loadout,
             get_weapons,
             set_autofire,

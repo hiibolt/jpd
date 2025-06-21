@@ -13,9 +13,7 @@
       shooting 
     } from '../stores/state';
 
-    import { changeLoadout } from '../lib/api';
-
-    let loadouts = $games[$current_game_index]?.categories[$current_category_index]?.loadouts ?? [];
+    $: loadouts = $games[$current_game_index]?.categories[$current_category_index]?.loadouts ?? [];
     $: currentLoadout = loadouts[$current_loadout_index] ?? { name: 'Loading...', weapon_ids: [] };
 </script>
 
@@ -29,24 +27,10 @@
         <div class="left-column card">
         {#if $games.length > 0}
           {#each $games as game, index}
-            <GameCard
-                game={game}
-                onClick={() => {
-                    current_game_index.set(index);
-                    current_category_index.set(0); // Reset to first category
-                    current_loadout_index.set(0); // Reset to first loadout
-                }}
-            />
+            <GameCard game={game} index={index} />
           {/each}
         {:else}
             <h2>Loading Games...</h2>
-        {/if}
-        {#if loadouts.length > 1}
-            {#each loadouts as loadout, index}
-            <LoadoutCard name={loadout.name} onClick={() => changeLoadout(index)} />
-            {/each}
-        {:else}
-            <p>Loading loadouts...</p>
         {/if}
         </div>
 

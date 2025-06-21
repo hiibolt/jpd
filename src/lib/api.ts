@@ -5,7 +5,9 @@ import {
     weapons,
     current_loadout_index,
     current_weapon_index,
-    shooting
+    shooting,
+    current_category_index,
+    current_game_index
 } from '../stores/state';
 
 type SwitchedWeaponEvent = {
@@ -54,6 +56,14 @@ function handleChannelEvent(message: Event) {
     }
 }
 
+export async function changeGame(index: number) {
+    const newIndex = await invoke('change_game', { newGameIndex: index });
+    current_game_index.set(newIndex as number);
+}
+export async function changeCategory(index: number) {
+    const newIndex = await invoke('change_category', { newCategoryIndex: index });
+    current_category_index.set(newIndex as number);
+}
 export async function changeLoadout(index: number) {
     const newIndex = await invoke('change_loadout', { newLoadoutIndex: index });
     current_loadout_index.set(newIndex as number);
