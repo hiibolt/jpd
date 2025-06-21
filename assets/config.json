@@ -2,6 +2,7 @@
   "require_right_hold": true,
   "keybinds": {
     "primary_weapon": "1",
-    "secondary_weapon": "2"
+    "secondary_weapon": "2",
+    "alternative_fire": "l"
   }
 }

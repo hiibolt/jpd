@@ -3,6 +3,7 @@ extern crate winapi;
 use crate::recoil::handle_hold_lmb;
 use crate::types::{AppState, AppEvent};
 
+use std::time::Duration;
 use std::{mem, ptr, thread};
 use std::sync::atomic::Ordering;
 use winapi::shared::hidusage::*;
@@ -11,7 +12,74 @@ use winapi::shared::windef::*;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::winuser::*;
 
-unsafe fn char_to_vk(c: char) -> u16 {
+pub fn press_key (
+    key: char
+) {
+    let key_as_scancode = char_to_scancode(key);
+
+    unsafe {
+        let mut input = INPUT {
+            type_: INPUT_KEYBOARD,
+            u: mem::zeroed(),
+        };
+        *input.u.ki_mut() = KEYBDINPUT {
+            wVk: 0,
+            wScan: key_as_scancode,
+            dwFlags: 0 | KEYEVENTF_SCANCODE,
+            time: 0,
+            dwExtraInfo: 0,
+        };
+
+        SendInput(1, &mut input, mem::size_of::<INPUT>() as i32);
+    }
+}
+pub fn release_key (
+    key: char
+) {
+    let key_as_scancode = char_to_scancode(key);
+
+    unsafe {
+        let mut input = INPUT {
+            type_: INPUT_KEYBOARD,
+            u: mem::zeroed(),
+        };
+        *input.u.ki_mut() = KEYBDINPUT {
+            wVk: 0,
+            wScan: key_as_scancode,
+            dwFlags: KEYEVENTF_KEYUP | KEYEVENTF_SCANCODE,
+            time: 0,
+            dwExtraInfo: 0,
+        };
+
+        SendInput(1, &mut input, mem::size_of::<INPUT>() as i32);
+    }
+}
+pub fn press_and_release_key (
+    key: char,
+    release_delay: Duration,
+) {
+    press_key(key);
+
+    thread::sleep(release_delay);
+
+    release_key(key);
+}
+pub fn char_to_scancode(c: char) -> u16 {
+    unsafe {
+        let as_vk = char_to_vk(c);
+
+        let return_value = MapVirtualKeyExA (
+            as_vk as u32,
+            MAPVK_VK_TO_VSC,
+            GetKeyboardLayout(0),
+        );
+        if return_value == 0 {
+            panic!("Failed to convert character '{}' to scancode", c);
+        }
+        return_value as u16
+    }
+}
+pub fn char_to_vk(c: char) -> u16 {
     unsafe {
         let return_value = VkKeyScanExW(
             c as u16,
@@ -140,8 +208,8 @@ unsafe extern "system" fn wnd_proc(
                 if !state_ptr.is_null() {
                     let state: &AppState = unsafe { &*state_ptr };
 
-                    let primary_key   = unsafe { char_to_vk(state.global_config.keybinds.primary_weapon) };
-                    let secondary_key = unsafe { char_to_vk(state.global_config.keybinds.secondary_weapon)};
+                    let primary_key   = char_to_vk(state.global_config.keybinds.primary_weapon);
+                    let secondary_key = char_to_vk(state.global_config.keybinds.secondary_weapon);
 
                     // When the '1' key is pressed, switch to the first weapon
                     if flags as u32 & RI_KEY_BREAK != 0 && keyboard.VKey == primary_key {
@@ -190,6 +258,7 @@ pub fn main_recoil (
     state: AppState
 ) {
     println!("Starting `clc-jpd`...");
+
     unsafe {
         let hinstance = GetModuleHandleW(ptr::null());
         let class_name = to_wstring("RawInputWnd");

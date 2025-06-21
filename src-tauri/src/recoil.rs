@@ -6,6 +6,7 @@ use parking_lot::RwLock;
 use winapi::um::winuser::*;
 
 use crate::types::{AppEvent, Game, GlobalConfig, Weapon};
+use crate::winapi::press_and_release_key;
 
 pub fn move_down (
     dx_total: f32,
@@ -59,12 +60,12 @@ pub fn move_down (
     }
 }
 pub fn handle_hold_lmb (
-    games: Arc<RwLock<Vec<Game>>>,
+    games:         Arc<RwLock<Vec<Game>>>,
     global_config: Arc<GlobalConfig>,
 
     events_channel_sender: Arc<Sender<AppEvent>>,
 
-    left_hold_active: Arc<AtomicBool>,
+    left_hold_active:  Arc<AtomicBool>,
     right_hold_active: Arc<AtomicBool>,
     current_game_index:     Arc<AtomicUsize>,
     current_category_index: Arc<AtomicUsize>,
@@ -195,41 +196,10 @@ pub fn handle_hold_lmb (
                         break 'outer;
                     }
 
-                    // Pull the trigger
-                    unsafe {
-                        // "Click" (press 'm' on keyboard)
-                        let mut input = INPUT {
-                            type_: INPUT_KEYBOARD,
-                            u: mem::zeroed(),
-                        };
-                        *input.u.ki_mut() = KEYBDINPUT {
-                            wVk: 0,
-                            wScan: 0x32, // 'M' key
-                            dwFlags: 0 | KEYEVENTF_SCANCODE,
-                            time: 0,
-                            dwExtraInfo: 0,
-                        };
-                    
-                        SendInput(1, &mut input, mem::size_of::<INPUT>() as i32);
-                    }
-
-                    std::thread::sleep(release_delay);
-
-                    // Release the trigger
-                    unsafe {
-                        let mut input = INPUT {
-                            type_: INPUT_KEYBOARD,
-                            u: mem::zeroed(),
-                        };
-                        *input.u.ki_mut() = KEYBDINPUT {
-                            wVk: 0,
-                            wScan: 0x32, // 'M' key
-                            dwFlags: KEYEVENTF_KEYUP | KEYEVENTF_SCANCODE,
-                            time: 0,
-                            dwExtraInfo: 0,
-                        };
-                        SendInput(1, &mut input, mem::size_of::<INPUT>() as i32);
-                    }
+                    press_and_release_key(
+                        global_config.keybinds.alternative_fire,
+                        release_delay
+                    );
 
                     std::thread::sleep(trigger_delay);
 

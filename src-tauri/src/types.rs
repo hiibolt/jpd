@@ -21,6 +21,7 @@ pub enum AppEvent {
 pub struct KeybindConfig {
     pub primary_weapon: char,
     pub secondary_weapon: char,
+    pub alternative_fire: char,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct GlobalConfig {
