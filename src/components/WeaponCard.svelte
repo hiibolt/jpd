@@ -2,6 +2,7 @@
     import type { Weapon } from '../stores/state';
     import WeaponStats from './WeaponStats.svelte';
 
+    export let weaponId: string;
     export let active: boolean;
     export let shooting: boolean;
     export let weapon: Weapon;
@@ -25,7 +26,7 @@
 
     {#if weapon}
         {#if open}
-            <WeaponStats id={weapon.config.name} type={weapon.type} config={weapon.config} />
+            <WeaponStats weaponId={weaponId} config={weapon.config} type={weapon.type} />
         {/if}
     {:else}
         <p>Weapon data unavailable</p>

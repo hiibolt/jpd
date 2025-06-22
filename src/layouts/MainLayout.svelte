@@ -40,6 +40,7 @@
             <h3>{currentLoadout.name}</h3>
             {#each currentLoadout.weapon_ids as id, i}
             <WeaponCard
+                weaponId={id}
                 weapon={currentGame.weapons[id] ?? null}
                 active={$current_weapon_index === i}
                 shooting={$shooting && $current_weapon_index === i}

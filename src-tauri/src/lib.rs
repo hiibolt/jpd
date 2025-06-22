@@ -78,45 +78,58 @@ async fn change_loadout (
     Err(format!("Invalid loadout index: {}", new_loadout_index))
 }
 #[tauri::command]
-fn set_autofire(
+fn set_weapon_config(
     state: tauri::State<'_, AppState>,
-    enabled: bool,
-    weapon: String
-) -> Result<(), String> {
+    weapon_id: String,
+
+    field: String,
+    new_value: serde_json::Value
+) -> Result<Vec<Game>, String> {
     // Load the current game, category, loadout, and weapon indices
     let current_game_index = state.current_game_index.load(std::sync::atomic::Ordering::Relaxed);
-    let current_category_index = state.current_category_index.load(std::sync::atomic::Ordering::Relaxed);
-    let current_loadout_index = state.current_loadout_index.load(std::sync::atomic::Ordering::Relaxed);
-    let current_weapon_index = state.current_weapon_index.load(std::sync::atomic::Ordering::Relaxed);
     
-    // Get the weapon ID from the current game, category, loadout, and weapon indices
-    let weapon_id = state.games.read_arc()
-        .get(current_game_index).ok_or(format!("Game index {} not found", current_game_index))?
-        .categories.get(current_category_index).ok_or(format!("Category index {} not found", current_category_index))?
-        .loadouts.get(current_loadout_index).ok_or(format!("Loadout index {} not found", current_loadout_index))?
-        .weapon_ids.get(current_weapon_index).ok_or(format!("Weapon index {} not found", current_weapon_index))?
-        .to_string();
-
     match state.games.write_arc()
-        .get_mut(current_game_index)
-        .ok_or(format!("Game index {} not found", current_game_index))?
+        .get_mut(current_game_index).ok_or(format!("Game index {} not found", current_game_index))?
         .weapons.get_mut(&weapon_id)
-        .ok_or(format!("Weapon ID {} not found in game!", weapon_id))?
+        .ok_or(format!("Weapon ID `{}` not found in game `{}`", weapon_id, current_game_index))?
     {
         Weapon::SingleFire(weapon_config) => {
-            // Set the autofire property of the SingleFireConfig
-            weapon_config.autofire = enabled;
+            match field.as_str() {
+                "name" => weapon_config.name = new_value.as_str().ok_or("Invalid value for name")?.to_string(),
+                "description" => weapon_config.description = new_value.as_str().map(|s| s.to_string()),
+                "trigger_delay_ms" => weapon_config.trigger_delay_ms = new_value.as_u64().ok_or("Invalid value for trigger_delay_ms")? as u32,
+                "recoil_completion_ms" => weapon_config.recoil_completion_ms = new_value.as_u64().ok_or("Invalid value for recoil_completion_ms")? as u32,
+                "release_delay_ms" => weapon_config.release_delay_ms = new_value.as_u64().ok_or("Invalid value for release_delay_ms")? as u32,
+                "dx" => weapon_config.dx = new_value.as_f64().ok_or("Invalid value for dx")? as f32,
+                "dy" => weapon_config.dy = new_value.as_f64().ok_or("Invalid value for dy")? as f32,
+                "mag_size" => weapon_config.mag_size = new_value.as_u64().ok_or("Invalid value for mag_size")? as u32,
+                "autofire" => weapon_config.autofire = new_value.as_bool().ok_or("Invalid value for autofire")?,
+                _ => return Err(format!("Unknown field: {}", field)),
+            }
         },
-        _ => return Err(format!("Weapon {} is not a single-fire weapon", weapon_id)),
+        Weapon::FullAutoStandard(weapon_config) => {
+            match field.as_str() {
+                "name" => weapon_config.name = new_value.as_str().ok_or("Invalid value for name")?.to_string(),
+                "description" => weapon_config.description = new_value.as_str().map(|s| s.to_string()),
+                "rpm" => weapon_config.rpm = new_value.as_u64().ok_or("Invalid value for rpm")? as u128,
+                "first_shot_scale" => weapon_config.first_shot_scale = new_value.as_f64().ok_or("Invalid value for first_shot_scale")? as f32,
+                "exponential_factor" => weapon_config.exponential_factor = new_value.as_f64().ok_or("Invalid value for exponential_factor")? as f32,
+                "dx" => weapon_config.dx = new_value.as_f64().ok_or("Invalid value for dx")? as f32,
+                "dy" => weapon_config.dy = new_value.as_f64().ok_or("Invalid value for dy")? as f32,
+                "mag_size" => weapon_config.mag_size = new_value.as_u64().ok_or("Invalid value for mag_size")? as u32,
+                _ => return Err(format!("Unknown field: {}", field)),
+            }
+        },
     }
 
     // Save the updated game data
-    if let Err(e) = save_data((*state).clone()) {
-        return Err(format!("Failed to save game data: {}", e));
-    }
+    save_data((*state).clone()).map_err(|e| format!("Failed to save game data: {}", e))?;
+    println!("Updated field `{}` for weapon `{}` in game `{}` to `{}`",
+        field, weapon_id, current_game_index, new_value
+    );
 
-    println!("Set autofire for weapon {} to {}", weapon, enabled);
-    Ok(())
+    // Return the updated games list
+    Ok(state.games.read_arc().clone())
 }
 fn load_data() -> Result<(Vec<Game>, GlobalConfig), String> {
     let assets_dir_path = Path::new("..").join("assets");
@@ -214,7 +227,7 @@ pub fn run() {
             change_category,
             change_loadout,
 
-            set_autofire,
+            set_weapon_config,
             start_channel_reads
         ])
         .setup(|app| {
