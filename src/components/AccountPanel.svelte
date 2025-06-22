@@ -1,5 +1,5 @@
 <script>
-  // Optional: you can pass the username in via props
+    export let currentPage = 'home';
 </script>
 
 <div class="account-panel card">
@@ -7,8 +7,15 @@
         <b>@hiibolt</b>
     </div>
     <div class="button-group">
-        <button data-tooltip="Settings">⚙️</button>
-        <button data-tooltip="Account">👤</button>
+        {#if currentPage !== 'home'}
+            <a href="/"><button data-tooltip="Home">🏠</button></a>
+        {/if}
+        {#if currentPage !== 'settings'}
+            <a href="/settings"><button data-tooltip="Settings">⚙️</button></a>
+        {/if}
+        {#if currentPage !== 'account'}
+            <a href="/account"><button data-tooltip="Account">👤</button></a>
+        {/if}
     </div>
 </div>
 

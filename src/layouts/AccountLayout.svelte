@@ -1,20 +1,8 @@
 <script lang="ts">
     import Titlebar from '../components/Titlebar.svelte';
     import Banner from '../components/Banner.svelte';
-    import GameCard from '../components/GameCard.svelte';
-    import WeaponCard from '../components/WeaponCard.svelte';
     import AccountPanel from '../components/AccountPanel.svelte';
     import Background from '../components/Background.svelte';
-
-    import {
-      games,
-      current_loadout_index, current_weapon_index, current_category_index, current_game_index,
-      shooting 
-    } from '../stores/state';
-
-    $: currentGame = $games[$current_game_index] ?? { name: 'Game Not Foun', categories: [], weapons: [] };
-    $: loadouts = currentGame.categories[$current_category_index]?.loadouts ?? [];
-    $: currentLoadout = loadouts[$current_loadout_index] ?? { name: 'Loadouts Not Found', weapon_ids: [] };
 </script>
 
 <Background />
@@ -25,30 +13,15 @@
     <div class="main-layout">
         <!-- Loadouts -->
         <div class="left-column card">
-        {#if $games.length > 0}
-          {#each $games as game, index}
-            <GameCard game={game} index={index} />
-          {/each}
-        {:else}
-            <h2>Loading Games...</h2>
-        {/if}
         </div>
 
         <!-- Active Loadout -->
         <div class="right-column">
-        <div class="card upper-right-card">
-            <h3>{currentLoadout.name}</h3>
-            {#each currentLoadout.weapon_ids as id, i}
-            <WeaponCard
-                weaponId={id}
-                weapon={currentGame.weapons[id] ?? null}
-                active={$current_weapon_index === i}
-                shooting={$shooting && $current_weapon_index === i}
-            />
-            {/each}
-        </div>
+            <div class="card upper-right-card">
+                <p>Settings</p>
+            </div>
 
-        <AccountPanel currentPage="home"/>
+            <AccountPanel currentPage="account"/>
         </div>
     </div>
 </main>
@@ -123,10 +96,6 @@ main.container {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-}
-
-h3 {
-  margin-top: 0;
 }
 </style>
 
