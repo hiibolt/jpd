@@ -7,9 +7,15 @@ import {
     shooting,
     current_category_index,
     current_game_index,
-    config
+    config,
+    type GlobalConfig,
+    type Game
 } from '../stores/state';
 
+type UpdatedGamesEvent = {
+    event: 'UpdatedGames';
+    data: { games: Game[]; };
+};
 type SwitchedWeaponEvent = {
     event: 'SwitchedWeapon';
     data: { weapon_ind: number };
@@ -21,7 +27,7 @@ type StartedShootingEvent = {
 type StoppedShootingEvent = {
     event: 'StoppedShooting';
 };
-type Event = SwitchedWeaponEvent | StartedShootingEvent | StoppedShootingEvent;
+type Event = UpdatedGamesEvent | SwitchedWeaponEvent | StartedShootingEvent | StoppedShootingEvent;
 
 let channel: Channel<Event>;
 
@@ -41,6 +47,10 @@ export async function initialize() {
 
 function handleChannelEvent(message: Event) {
     switch (message.event) {
+        case 'UpdatedGames':
+            games.set(message.data.games as any);
+            console.log('Games updated:', message.data.games);
+            break;
         case 'SwitchedWeapon':
             current_weapon_index.set(message.data.weapon_ind);
             break;

@@ -5,8 +5,9 @@ mod types;
 use parking_lot::{Mutex, RwLock};
 use tauri::{ipc::Channel, Builder, Manager};
 use window_vibrancy::apply_acrylic;
+use anyhow::{anyhow, Result};
 
-use std::{path::Path, sync::{atomic::{AtomicBool, AtomicUsize}, Arc}};
+use std::{path::Path, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc}};
 
 use crate::winapi::main_recoil;
 use crate::types::{AppEvent, AppState, Game, GlobalConfig, Weapon};
@@ -85,7 +86,7 @@ async fn change_setting (
     }
 
     println!("Updated setting `{}` to `{}`", setting, value);
-    save_data((*state).clone()).map_err(|e| format!("Failed to save game data: {}", e))?;
+    save_data(&state).map_err(|e| format!("Failed to save game data: {}", e))?;
 
     Ok(state.global_config.read_arc().clone())
 }
@@ -96,7 +97,7 @@ async fn change_horizontal_multiplier (
 ) -> Result<GlobalConfig, String> {
     if new_multiplier > 0.0 {
         state.global_config.write_arc().mouse_config.horizontal_multiplier = new_multiplier;
-        save_data((*state).clone()).map_err(|e| format!("Failed to save game data: {}", e))?;
+        save_data(&state).map_err(|e| format!("Failed to save game data: {}", e))?;
         println!("Changed horizontal multiplier to {}", new_multiplier);
         
         return Ok(state.global_config.read_arc().clone());
@@ -111,7 +112,7 @@ async fn change_vertical_multiplier (
 ) -> Result<GlobalConfig, String> {
     if new_multiplier > 0.0 {
         state.global_config.write_arc().mouse_config.vertical_multiplier = new_multiplier;
-        save_data((*state).clone()).map_err(|e| format!("Failed to save game data: {}", e))?;
+        save_data(&state).map_err(|e| format!("Failed to save game data: {}", e))?;
         println!("Changed vertical multiplier to {}", new_multiplier);
 
         return Ok(state.global_config.read_arc().clone());
@@ -185,13 +186,39 @@ fn set_weapon_config(
     }
 
     // Save the updated game data
-    save_data((*state).clone()).map_err(|e| format!("Failed to save game data: {}", e))?;
+    save_data(&state).map_err(|e| format!("Failed to save game data: {}", e))?;
     println!("Updated field `{}` for weapon `{}` in game `{}` to `{}`",
         field, weapon_id, current_game_index, new_value
     );
 
     // Return the updated games list
     Ok(state.games.read_arc().clone())
+}
+
+fn get_weapon_id (
+    state: &AppState,
+) -> Result<String> {
+    let games = state.games.read_arc();
+    let current_game_index = state.current_game_index.load(Ordering::SeqCst);
+    let current_game = &games.get(current_game_index)
+        .ok_or(anyhow!("Game index {} not found", current_game_index))?;
+
+    // Get the current category
+    let current_category_index = state.current_category_index.load(Ordering::SeqCst);
+    let current_category = &current_game.categories.get(current_category_index)
+        .ok_or(anyhow!("Category index {} not found in game `{}`", current_category_index, current_game.name))?;
+
+    // Get the current loadout
+    let current_loadout_index = state.current_loadout_index.load(Ordering::SeqCst);
+    let current_loadout = &current_category.loadouts.get(current_loadout_index)
+        .ok_or(anyhow!("Loadout index {} not found in category `{}` in game `{}`", current_loadout_index, current_category.name, current_game.name))?;
+
+    // Get the current weapon index
+    let weapon_ind = state.current_weapon_index.load(Ordering::SeqCst);
+    let weapon_id = current_loadout.weapon_ids.get(weapon_ind)
+        .ok_or(anyhow!("Weapon index `{}` not found in loadout `{}` in category `{}` in game `{}`", weapon_ind, current_loadout.name, current_category.name, current_game.name))?;
+
+    Ok(weapon_id.clone())
 }
 fn load_data() -> Result<(Vec<Game>, GlobalConfig), String> {
     let assets_dir_path = Path::new("..").join("assets");
@@ -233,7 +260,7 @@ fn load_data() -> Result<(Vec<Game>, GlobalConfig), String> {
     Ok((games, global_config))
 }
 fn save_data(
-    state: AppState
+    state: &AppState
 ) -> Result<(), String> {
     let assets_dir_path = Path::new("..").join("assets");
 

@@ -11,7 +11,7 @@ type MouseConfig = {
     horizontal_multiplier: number;
     vertical_multiplier: number;
 };
-type GlobalConfig = {
+export type GlobalConfig = {
     keybinds: KeybindConfig;
     mouse_config: MouseConfig;
 };

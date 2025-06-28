@@ -1,11 +1,10 @@
 extern crate winapi;
-use std::sync::{mpsc::Sender, atomic::AtomicUsize};
 use std::{mem, thread, time::Duration};
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
-use parking_lot::RwLock;
+use std::sync::atomic::Ordering;
 use winapi::um::winuser::*;
 
-use crate::types::{AppEvent, Game, GlobalConfig, Weapon};
+use crate::get_weapon_id;
+use crate::types::{AppEvent, AppState, GlobalConfig, Weapon};
 use crate::winapi::press_and_release_key;
 
 pub fn move_down (
@@ -64,29 +63,19 @@ pub fn move_down (
     }
 }
 pub fn handle_hold_lmb (
-    games:         Arc<RwLock<Vec<Game>>>,
-    global_config: Arc<RwLock<GlobalConfig>>,
-
-    events_channel_sender: Arc<Sender<AppEvent>>,
-
-    left_hold_active:  Arc<AtomicBool>,
-    right_hold_active: Arc<AtomicBool>,
-    current_game_index:     Arc<AtomicUsize>,
-    current_category_index: Arc<AtomicUsize>,
-    current_loadout_index:  Arc<AtomicUsize>,
-    current_weapon_index:   Arc<AtomicUsize>,
+    state: AppState,
 ) {
     'outer: loop {
-        let global_config = &*global_config.read_arc();
+        let global_config = &*state.global_config.read_arc();
 
         // Check that the right button is also held down
-        if global_config.keybinds.require_right_hold && !right_hold_active.load(Ordering::SeqCst) {
+        if global_config.keybinds.require_right_hold && !state.right_hold_active.load(Ordering::SeqCst) {
             // Emit an event that shooting has stopped
-            if let Err(e) = events_channel_sender.send(AppEvent::StoppedShooting) {
+            if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
                 eprintln!("Failed to send event: {}", e);
             }
 
-            if !left_hold_active.load(Ordering::SeqCst) {
+            if !state.left_hold_active.load(Ordering::SeqCst) {
                 // If the left button is not held, exit the loop
                 return;
             }
@@ -96,39 +85,26 @@ pub fn handle_hold_lmb (
         }
 
         // Get the current game
-        let games = games.read_arc();
-        let current_game_index = current_game_index.load(Ordering::SeqCst);
-        if current_game_index >= games.len() {
-            eprintln!("Invalid game index: {}", current_game_index);
-            return;
-        }
-        let current_game = &games[current_game_index];
+        let current_game = state.games.read_arc();
+        let current_game_index = state.current_game_index.load(Ordering::SeqCst);
+        let current_game = match current_game.get(current_game_index) {
+            Some(game) => game,
+            None => {
+                eprintln!("Game index {} not found", current_game_index);
+                return;
+            }
+        };
+        let weapon_id = match get_weapon_id(&state) {
+            Ok(weapon_id) => weapon_id,
+            Err(e) => {
+                eprintln!("Error getting weapon ID: {}", e);
+                return;
+            }
+        };
 
-        // Get the current category
-        let current_category_index = current_category_index.load(Ordering::SeqCst);
-        if current_category_index >= current_game.categories.len() {
-            eprintln!("Invalid category index `{}` for game `{}`", current_category_index, current_game.name);
-            return;
-        }
-        let current_category = &current_game.categories[current_category_index];
-
-        // Get the current loadout
-        let current_loadout_index = current_loadout_index.load(Ordering::SeqCst);
-        if current_loadout_index >= current_category.loadouts.len() {
-            eprintln!("Invalid loadout index `{}` for category `{}` in game `{}`", current_loadout_index, current_category.name, current_game.name);
-            return;
-        }
-        let current_loadout = &current_category.loadouts[current_loadout_index];
-
-        // Get the current weapon index
-        let weapon_ind = current_weapon_index.load(Ordering::SeqCst);
-        if weapon_ind >= current_loadout.weapon_ids.len() {
-            eprintln!("Invalid weapon index `{}` for loadout `{}` in category `{}` in game `{}`", weapon_ind, current_loadout.name, current_category.name, current_game.name);
-            return;
-        }
-        let weapon_id = &current_loadout.weapon_ids[weapon_ind];
         // Get the weapon configuration
-        let weapon = match current_game.weapons.get(weapon_id) {
+        let weapon_ind = state.current_weapon_index.load(Ordering::SeqCst);
+        let weapon = match current_game.weapons.get(&weapon_id) {
             Some(weapon) => weapon.clone(),
             None => {
                 eprintln!("Weapon not found: {}", weapon_id);
@@ -137,11 +113,10 @@ pub fn handle_hold_lmb (
         };
 
         // Emit an event that shooting has started
-        if let Err(e) = events_channel_sender.send(AppEvent::StartedShooting { weapon_ind }) {
+        if let Err(e) = state.events_channel_sender.send(AppEvent::StartedShooting { weapon_ind }) {
             eprintln!("Failed to send event: {}", e);
         }
 
-        println!("Game index {current_game_index}, category index {current_category_index}, loadout index {current_loadout_index}, weapon index {weapon_ind}");
         println!("Controlling weapon: {}", weapon_id);
         let mut rounds_fired = 1;
         match weapon {
@@ -158,7 +133,7 @@ pub fn handle_hold_lmb (
                 move_down(global_config, first_dx, first_dy, 3, interval, true);
 
                 let mut iteration = 0;
-                while left_hold_active.load(Ordering::SeqCst) && !(global_config.keybinds.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) {
+                while state.left_hold_active.load(Ordering::SeqCst) && !(global_config.keybinds.require_right_hold && !state.right_hold_active.load(Ordering::SeqCst)) {
                     let dy_total = config.dy * config.exponential_factor.powf(iteration as f32);
                     move_down(global_config, config.dx, dy_total, 10, interval, false);
 
@@ -166,7 +141,7 @@ pub fn handle_hold_lmb (
                     iteration += 1;
 
                     // Check if the weapon has been changed
-                    let new_weapon_ind = current_weapon_index.load(Ordering::SeqCst);
+                    let new_weapon_ind = state.current_weapon_index.load(Ordering::SeqCst);
                     if new_weapon_ind != weapon_ind {
                         // If the weapon has changed, exit the loop
                         println!("Weapon changed while firing, exiting hold loop.");
@@ -185,7 +160,7 @@ pub fn handle_hold_lmb (
                 let recoil_completion = Duration::from_millis(config.recoil_completion_ms as u64);
                 let release_delay = Duration::from_millis(config.release_delay_ms as u64);
 
-                while left_hold_active.load(Ordering::SeqCst) && !(global_config.keybinds.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) {
+                while state.left_hold_active.load(Ordering::SeqCst) && !(global_config.keybinds.require_right_hold && !state.right_hold_active.load(Ordering::SeqCst)) {
                     // Move down for the next shot
                     move_down(
                         global_config, 
@@ -196,9 +171,9 @@ pub fn handle_hold_lmb (
                         true
                     );
 
-                    if !left_hold_active.load(Ordering::SeqCst) || 
+                    if !state.left_hold_active.load(Ordering::SeqCst) || 
                         !config.autofire ||
-                        (global_config.keybinds.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) 
+                        (global_config.keybinds.require_right_hold && !state.right_hold_active.load(Ordering::SeqCst)) 
                     {
                         break 'outer;
                     }
@@ -211,7 +186,7 @@ pub fn handle_hold_lmb (
                     std::thread::sleep(trigger_delay);
 
                     // Check if the weapon has been changed
-                    let new_weapon_ind = current_weapon_index.load(Ordering::SeqCst);
+                    let new_weapon_ind = state.current_weapon_index.load(Ordering::SeqCst);
                     if new_weapon_ind != weapon_ind {
                         // If the weapon has changed, exit the loop
                         println!("Weapon changed while firing, exiting hold loop.");
@@ -227,14 +202,14 @@ pub fn handle_hold_lmb (
                 }
             }
         }
-        if !left_hold_active.load(Ordering::SeqCst) {
+        if !state.left_hold_active.load(Ordering::SeqCst) {
             println!("Left button released, exiting hold loop.");
             break;
         }
     }
 
     // Emit an event that shooting has stopped
-    if let Err(e) = events_channel_sender.send(AppEvent::StoppedShooting) {
+    if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
         eprintln!("Failed to send event: {}", e);
     }
 }

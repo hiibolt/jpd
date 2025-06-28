@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "event", content = "data")]
 pub enum AppEvent {
+    UpdatedGames {
+        games: Vec<Game>,
+    },
     SwitchedWeapon {
         weapon_ind: usize,
     },

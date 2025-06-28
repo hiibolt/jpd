@@ -1,7 +1,8 @@
 extern crate winapi;
 
+use crate::{get_weapon_id, load_data, save_data};
 use crate::recoil::handle_hold_lmb;
-use crate::types::{AppState, AppEvent};
+use crate::types::{AppEvent, AppState, Weapon};
 
 use std::time::Duration;
 use std::{mem, ptr, thread};
@@ -163,30 +164,10 @@ unsafe extern "system" fn wnd_proc(
                         // If the hold is not already active, start a new thread
                         if !state.left_hold_active.load(Ordering::SeqCst) {
                             state.left_hold_active.store(true, Ordering::SeqCst);
-                            let games_clone = state.games.clone();
-                            let global_config_clone = state.global_config.clone();
 
-                            let events_channel_sender_clone = state.events_channel_sender.clone();
-
-                            let left_hold_clone = state.left_hold_active.clone();
-                            let right_hold_clone = state.right_hold_active.clone();
-                            let current_game_index_clone = state.current_game_index.clone();
-                            let current_category_index_clone = state.current_category_index.clone();
-                            let current_loadout_clone = state.current_loadout_index.clone();
-                            let current_index_clone = state.current_weapon_index.clone();
-
+                            let state_cloned = state.clone();
                             thread::spawn(|| { handle_hold_lmb(
-                                games_clone,
-                                global_config_clone,
-
-                                events_channel_sender_clone,
-                                
-                                left_hold_clone,
-                                right_hold_clone,
-                                current_game_index_clone,
-                                current_category_index_clone,
-                                current_loadout_clone,
-                                current_index_clone
+                                state_cloned
                             ) });
                         }
                     }
@@ -196,6 +177,7 @@ unsafe extern "system" fn wnd_proc(
                     }
                 }
             }
+
             // Handle keyboard inputs
             if raw.header.dwType == RIM_TYPEKEYBOARD {
                 let keyboard = unsafe { raw.data.keyboard() };
@@ -212,8 +194,11 @@ unsafe extern "system" fn wnd_proc(
                     let primary_key   = char_to_vk(global_config.keybinds.primary_weapon);
                     let secondary_key = char_to_vk(global_config.keybinds.secondary_weapon);
 
-                    // When the '1' key is pressed, switch to the first weapon
-                    if flags as u32 & RI_KEY_BREAK != 0 && keyboard.VKey == primary_key {
+                    if flags as u32 & RI_KEY_BREAK == 0 {
+                        return 0; // Ignore key press events
+                    }
+
+                    if keyboard.VKey == primary_key {
                         println!("Switching to weapon 1");
                         state.current_weapon_index.store(0, Ordering::SeqCst);
 
@@ -223,9 +208,7 @@ unsafe extern "system" fn wnd_proc(
                         }) {
                             eprintln!("Failed to send event: {}", e);
                         }
-                    }
-                    // When the '2' key is pressed, switch to the second weapon
-                    if flags as u32 & RI_KEY_BREAK != 0 && keyboard.VKey == secondary_key {
+                    } else if keyboard.VKey == secondary_key {
                         println!("Switching to weapon 2");
                         state.current_weapon_index.store(1, Ordering::SeqCst);
 
@@ -235,9 +218,77 @@ unsafe extern "system" fn wnd_proc(
                         }) {
                             eprintln!("Failed to send event: {}", e);
                         }
+                    } else if keyboard.VKey as i32 == VK_PRIOR || keyboard.VKey as i32 == VK_NEXT 
+                        || keyboard.VKey as i32 == VK_HOME || keyboard.VKey as i32 == VK_END
+                    {
+                        let current_weapon_id = match get_weapon_id(state) {
+                            Ok(id) => id,
+                            Err(e) => {
+                                eprintln!("Error getting weapon ID: {}", e);
+                                return 0;
+                            }
+                        };
+                        let mut games = state.games.write_arc();
+                        let current_game = if let Some(game) = games.get_mut(state.current_game_index.load(Ordering::SeqCst)) { game } else {
+                            eprintln!("Current game index out of bounds");
+                            return 0;
+                        };
+                        
+                        let weapon = if let Some(weapon) = current_game.weapons.get_mut(&current_weapon_id) { weapon } else {
+                            eprintln!("Weapon not found: {}", current_weapon_id);
+                            return 0;
+                        };
+
+                        let (dx_mut_ref, dy_mut_ref) = match weapon {
+                            Weapon::SingleFire(config) => (&mut config.dx, &mut config.dy),
+                            Weapon::FullAutoStandard(config) => (&mut config.dx, &mut config.dy)
+                        };
+                        *dx_mut_ref += if keyboard.VKey as i32 == VK_HOME { 0.1 } else if keyboard.VKey as i32 == VK_END { -0.1 } else { 0.0 };
+                        *dy_mut_ref += if keyboard.VKey as i32 == VK_PRIOR { 0.1 } else if keyboard.VKey as i32 == VK_NEXT { -0.1 } else { 0.0 };
+
+                        // Round the values to 2 decimal places
+                        *dx_mut_ref = (*dx_mut_ref * 100.0).round() / 100.0;
+                        *dy_mut_ref = (*dy_mut_ref * 100.0).round() / 100.0;
+
+                        // Emit an event that the config has been updated
+                        drop(games); // Drop the lock before saving
+                        if let Err(e) = state.events_channel_sender.send(AppEvent::UpdatedGames {
+                            games: state.games.read_arc().clone(),
+                        }) {
+                            eprintln!("Failed to send event: {}", e);
+                        }
+
+                        // Save the updated config
+                        if let Err(e) = save_data(state) {
+                            eprintln!("Failed to save data: {}", e);
+                        }
+                    } else if keyboard.VKey as i32 == VK_INSERT {
+                        println!("Reloading config...");
+
+                        // Load the config from the file
+                        match load_data() {
+                            Ok((games, global_config)) => {
+                                let mut state_games = state.games.write_arc();
+                                *state_games = games;
+                                *state.global_config.write_arc() = global_config;
+
+                                // Emit an event that the config has been updated
+                                if let Err(e) = state.events_channel_sender.send(AppEvent::UpdatedGames {
+                                    games: state_games.clone(),
+                                }) {
+                                    eprintln!("Failed to send event: {}", e);
+                                }
+                            },
+                            Err(e) => {
+                                eprintln!("Failed to load data: {}", e);
+                            }
+                        }
+
+                        println!("Config reloaded successfully.");
                     }
                 }
             }
+
             0
         }
         WM_DESTROY => {
@@ -246,6 +297,7 @@ unsafe extern "system" fn wnd_proc(
                 unsafe { drop(Box::from_raw(state_ptr)); }
             }
             unsafe { PostQuitMessage(0) };
+
             0
         }
         _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
