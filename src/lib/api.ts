@@ -6,7 +6,8 @@ import {
     current_weapon_index,
     shooting,
     current_category_index,
-    current_game_index
+    current_game_index,
+    config
 } from '../stores/state';
 
 type SwitchedWeaponEvent = {
@@ -20,7 +21,6 @@ type StartedShootingEvent = {
 type StoppedShootingEvent = {
     event: 'StoppedShooting';
 };
-
 type Event = SwitchedWeaponEvent | StartedShootingEvent | StoppedShootingEvent;
 
 let channel: Channel<Event>;
@@ -28,12 +28,14 @@ let channel: Channel<Event>;
 export async function initialize() {
     const loadedLoadouts = await invoke('get_games');
     games.set(loadedLoadouts as any);
-
     console.log('Games loaded:', loadedLoadouts);
+
+    const loadedConfig = await invoke('get_config');
+    config.set(loadedConfig as any);
+    console.log('Config loaded:', loadedConfig);
 
     channel = new Channel<Event>();
     channel.onmessage = handleChannelEvent;
-
     await invoke('start_channel_reads', { channel });
 }
 
@@ -65,4 +67,16 @@ export async function changeCategory(index: number) {
 export async function changeLoadout(index: number) {
     const newIndex = await invoke('change_loadout', { newLoadoutIndex: index });
     current_loadout_index.set(newIndex as number);
+}
+export async function changeHorizontalMultiplier(newMultiplier: number) {
+    const new_config = await invoke('change_horizontal_multiplier', { newMultiplier });
+    config.set(new_config as any);
+}
+export async function changeVerticalMultiplier(newMultiplier: number) {
+    const new_config = await invoke('change_vertical_multiplier', { newMultiplier });
+    config.set(new_config as any);
+}
+export async function changeSetting(setting: string, value: string | boolean | number) {
+    const new_config = await invoke('change_setting', { setting, value });
+    config.set(new_config as any);
 }

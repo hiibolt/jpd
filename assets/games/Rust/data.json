@@ -26,30 +26,17 @@
     }
   ],
   "weapons": {
-    "Rust_AK47": {
-      "type": "FullAutoStandard",
-      "config": {
-        "name": "AK-47",
-        "description": null,
-        "rpm": 600,
-        "first_shot_scale": 1.15,
-        "exponential_factor": 1.005,
-        "dx": -3.0,
-        "dy": 100.0,
-        "mag_size": 30
-      }
-    },
-    "Rust_Pump": {
+    "Rust_DB": {
       "type": "SingleFire",
       "config": {
-        "name": "Pump Shotgun",
+        "name": "Double Barrel Shotgun",
         "description": null,
         "trigger_delay_ms": 90,
         "recoil_completion_ms": 10,
         "release_delay_ms": 25,
         "dx": 0.0,
         "dy": 46.5,
-        "mag_size": 8,
+        "mag_size": 21,
         "autofire": false
       }
     },
@@ -67,18 +54,31 @@
         "autofire": false
       }
     },
-    "Rust_DB": {
+    "Rust_Pump": {
       "type": "SingleFire",
       "config": {
-        "name": "Double Barrel Shotgun",
+        "name": "Pump Shotgun",
         "description": null,
         "trigger_delay_ms": 90,
         "recoil_completion_ms": 10,
         "release_delay_ms": 25,
         "dx": 0.0,
         "dy": 46.5,
-        "mag_size": 21,
+        "mag_size": 8,
         "autofire": false
+      }
+    },
+    "Rust_AK47": {
+      "type": "FullAutoStandard",
+      "config": {
+        "name": "AK-47",
+        "description": null,
+        "rpm": 600,
+        "first_shot_scale": 1.15,
+        "exponential_factor": 1.005,
+        "dx": -3.0,
+        "dy": 100.0,
+        "mag_size": 30
       }
     }
   }

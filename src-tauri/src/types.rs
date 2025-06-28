@@ -19,20 +19,54 @@ pub enum AppEvent {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct KeybindConfig {
+    pub require_right_hold: bool,
     pub primary_weapon: char,
     pub secondary_weapon: char,
     pub alternative_fire: char,
 }
+impl Default for KeybindConfig {
+    fn default() -> Self {
+        Self {
+            require_right_hold: true,
+            primary_weapon: '1',
+            secondary_weapon: '2',
+            alternative_fire: '3',
+        }
+    }
+}
+#[derive(Clone, Serialize, Deserialize)]
+pub struct MouseConfig {
+    pub horizontal_multiplier: f32,
+    pub vertical_multiplier: f32,
+}
+impl Default for MouseConfig {
+    fn default() -> Self {
+        Self {
+            horizontal_multiplier: 1.0,
+            vertical_multiplier: 1.0,
+        }
+    }
+}
 #[derive(Clone, Serialize, Deserialize)]
 pub struct GlobalConfig {
-    pub require_right_hold: bool,
+    #[serde(default)]
     pub keybinds: KeybindConfig,
+    #[serde(default)]
+    pub mouse_config: MouseConfig,
+}
+impl Default for GlobalConfig {
+    fn default() -> Self {
+        Self {
+            keybinds: KeybindConfig::default(),
+            mouse_config: MouseConfig::default(),
+        }
+    }
 }
 
 #[derive(Clone)]
 pub struct AppState {
     pub games:         Arc<RwLock<Vec<Game>>>,
-    pub global_config: Arc<GlobalConfig>,
+    pub global_config: Arc<RwLock<GlobalConfig>>,
     
     pub events_channel_sender:   Arc<Sender<AppEvent>>,
     pub events_channel_reciever: Arc<Mutex<Receiver<AppEvent>>>,

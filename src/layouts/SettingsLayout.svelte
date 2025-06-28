@@ -3,6 +3,14 @@
     import Banner from '../components/Banner.svelte';
     import AccountPanel from '../components/AccountPanel.svelte';
     import Background from '../components/Background.svelte';
+    import ConfigGroup from '../components/ConfigGroup.svelte';
+    import { config } from '../stores/state';
+
+    let keybindConfigOptions: any[] = [
+        { label: 'Primary Weapon', description: 'Switches to primary weapon', type: 'char', key: 'primary_weapon', value: $config.keybinds.primary_weapon },
+		{ label: 'Secondary Weapon', description: 'Switches to secondary weapon', type: 'char', key: 'secondary_weapon', value: $config.keybinds.secondary_weapon },
+		{ label: 'Alternative Fire', description: 'Bind your shoot key to this in-game for autofire to work', type: 'char', key: 'alternative_fire', value: $config.keybinds.alternative_fire }
+    ];
 </script>
 
 <Background />
@@ -13,6 +21,8 @@
     <div class="main-layout">
         <!-- Loadouts -->
         <div class="left-column card">
+            <h2>Configuration Options</h2>
+            <ConfigGroup configOptions={keybindConfigOptions} label="Keybinds" />
         </div>
 
         <!-- Active Loadout -->
@@ -78,6 +88,7 @@ main.container {
   gap: 0.75rem;
   overflow-y: auto;
   padding: 0.5rem;
+  text-align: center;
 }
 
 .right-column {

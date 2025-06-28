@@ -7,7 +7,7 @@
     export let shooting: boolean;
     export let weapon: Weapon;
 
-    let open = active;
+    let open = false;
 
     function toggle() {
         open = !open;

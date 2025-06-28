@@ -9,8 +9,13 @@
     import {
       games,
       current_loadout_index, current_weapon_index, current_category_index, current_game_index,
-      shooting 
+      shooting, 
+      config
+
     } from '../stores/state';
+    import StatField from '../components/StatField.svelte';
+	import { changeHorizontalMultiplier, changeVerticalMultiplier } from '../lib/api';
+
 
     $: currentGame = $games[$current_game_index] ?? { name: 'Game Not Foun', categories: [], weapons: [] };
     $: loadouts = currentGame.categories[$current_category_index]?.loadouts ?? [];
@@ -47,7 +52,24 @@
             />
             {/each}
         </div>
-
+        <div>
+            <StatField
+              label="Horizontal Sensitivity Multiplier"
+              value={$config.mouse_config.horizontal_multiplier}
+              type="number"
+              onChange={(v) => {
+				changeHorizontalMultiplier(v);
+              }}
+            />
+            <StatField
+              label="Vertical Sensitivity Multiplier"
+              value={$config.mouse_config.vertical_multiplier}
+              type="number"
+              onChange={(v) => {
+				changeVerticalMultiplier(v);
+              }}
+            />
+        </div>
         <AccountPanel currentPage="home"/>
         </div>
     </div>

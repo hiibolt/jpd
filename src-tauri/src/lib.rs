@@ -17,6 +17,10 @@ fn get_games(state: tauri::State<'_, AppState>) -> Vec<Game> {
     state.games.read_arc().clone()
 }
 #[tauri::command]
+fn get_config(state: tauri::State<'_, AppState>) -> GlobalConfig {
+    state.global_config.read_arc().clone()
+}
+#[tauri::command]
 async fn start_channel_reads (
     state: tauri::State<'_, AppState>,
     channel: Channel<AppEvent>,
@@ -56,6 +60,64 @@ async fn change_category (
     }
 
     Err(format!("Invalid category index: {}", new_category_index))
+}
+#[tauri::command]
+async fn change_setting (
+    state: tauri::State<'_, AppState>,
+    setting: String,
+    value: serde_json::Value
+) -> Result<GlobalConfig, String> {
+    match setting.as_str() {
+        "primary_weapon" | "secondary_weapon" | "alternative_fire" => {
+            let new_value = value.as_str().ok_or("Invalid value! Must be a string.")?;
+            if new_value.len() != 1 {
+                return Err("Primary weapon must be a single character".to_string());
+            }
+
+            match setting.as_str() {
+                "primary_weapon" => state.global_config.write_arc().keybinds.primary_weapon = new_value.chars().next().unwrap(),
+                "secondary_weapon" => state.global_config.write_arc().keybinds.secondary_weapon = new_value.chars().next().unwrap(),
+                "alternative_fire" => state.global_config.write_arc().keybinds.alternative_fire = new_value.chars().next().unwrap(),
+                _ => unreachable!(),
+            }
+        },
+        _ => return Err(format!("Unknown setting: {}", setting)),
+    }
+
+    println!("Updated setting `{}` to `{}`", setting, value);
+    save_data((*state).clone()).map_err(|e| format!("Failed to save game data: {}", e))?;
+
+    Ok(state.global_config.read_arc().clone())
+}
+#[tauri::command]
+async fn change_horizontal_multiplier (
+    state: tauri::State<'_, AppState>,
+    new_multiplier: f32
+) -> Result<GlobalConfig, String> {
+    if new_multiplier > 0.0 {
+        state.global_config.write_arc().mouse_config.horizontal_multiplier = new_multiplier;
+        save_data((*state).clone()).map_err(|e| format!("Failed to save game data: {}", e))?;
+        println!("Changed horizontal multiplier to {}", new_multiplier);
+        
+        return Ok(state.global_config.read_arc().clone());
+    }
+
+    Err(format!("Invalid horizontal multiplier: {}", new_multiplier))
+}
+#[tauri::command]
+async fn change_vertical_multiplier (
+    state: tauri::State<'_, AppState>,
+    new_multiplier: f32
+) -> Result<GlobalConfig, String> {
+    if new_multiplier > 0.0 {
+        state.global_config.write_arc().mouse_config.vertical_multiplier = new_multiplier;
+        save_data((*state).clone()).map_err(|e| format!("Failed to save game data: {}", e))?;
+        println!("Changed vertical multiplier to {}", new_multiplier);
+
+        return Ok(state.global_config.read_arc().clone());
+    }
+
+    Err(format!("Invalid vertical multiplier: {}", new_multiplier))
 }
 #[tauri::command]
 async fn change_loadout (
@@ -136,7 +198,16 @@ fn load_data() -> Result<(Vec<Game>, GlobalConfig), String> {
     let config_path = assets_dir_path.join("config.json");
     let games_dir_path = assets_dir_path.join("games");
 
-    // Load global config from `assets/config.json`
+    // If the `assets/config.json` file does not exist, create it with default values
+    if !config_path.exists() {
+        let default_config = GlobalConfig::default();
+        std::fs::write(
+            &config_path,
+            serde_json::to_string_pretty(&default_config).map_err(|e| e.to_string())?
+        ).map_err(|e| e.to_string())?;
+    }
+
+    // Load global config from `assets/config.json``
     let global_config: GlobalConfig = serde_json::from_str(
         &std::fs::read_to_string(config_path).map_err(|e| e.to_string())?
     ).map_err(|e| e.to_string())?;
@@ -167,7 +238,7 @@ fn save_data(
     let assets_dir_path = Path::new("..").join("assets");
 
     // Save config to `assets/config.json`
-    let global_config: GlobalConfig = (*state.global_config).clone();
+    let global_config: GlobalConfig = state.global_config.read_arc().clone();
     std::fs::write(
         assets_dir_path.join("config.json"),
         serde_json::to_string_pretty(&global_config).map_err(|e| e.to_string())?
@@ -197,7 +268,7 @@ async fn setup() -> AppState {
     let (event_tx, event_rx) = std::sync::mpsc::channel();
     let state = AppState {
         games:         Arc::new(RwLock::new(games)),
-        global_config: Arc::new(global_config),
+        global_config: Arc::new(RwLock::new(global_config)),
 
         events_channel_sender:   Arc::new(event_tx),
         events_channel_reciever: Arc::new(Mutex::new(event_rx)),
@@ -222,10 +293,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             get_games,
+            get_config,
 
             change_game,
             change_category,
             change_loadout,
+            change_horizontal_multiplier,
+            change_vertical_multiplier,
+            change_setting,
 
             set_weapon_config,
             start_channel_reads

@@ -208,8 +208,9 @@ unsafe extern "system" fn wnd_proc(
                 if !state_ptr.is_null() {
                     let state: &AppState = unsafe { &*state_ptr };
 
-                    let primary_key   = char_to_vk(state.global_config.keybinds.primary_weapon);
-                    let secondary_key = char_to_vk(state.global_config.keybinds.secondary_weapon);
+                    let global_config = state.global_config.read_arc();
+                    let primary_key   = char_to_vk(global_config.keybinds.primary_weapon);
+                    let secondary_key = char_to_vk(global_config.keybinds.secondary_weapon);
 
                     // When the '1' key is pressed, switch to the first weapon
                     if flags as u32 & RI_KEY_BREAK != 0 && keyboard.VKey == primary_key {

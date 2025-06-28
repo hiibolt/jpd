@@ -9,12 +9,16 @@ use crate::types::{AppEvent, Game, GlobalConfig, Weapon};
 use crate::winapi::press_and_release_key;
 
 pub fn move_down (
+    config: &GlobalConfig,
+
     dx_total: f32,
     dy_total: f32,
     splits: u32,
     total_interval: Duration,
     wait_first: bool,
 ) {
+    let dx_total = dx_total * config.mouse_config.horizontal_multiplier;
+    let dy_total = dy_total * config.mouse_config.vertical_multiplier;
     let mut dx_accum = 0.0;
     let mut dy_accum = 0.0;
 
@@ -61,7 +65,7 @@ pub fn move_down (
 }
 pub fn handle_hold_lmb (
     games:         Arc<RwLock<Vec<Game>>>,
-    global_config: Arc<GlobalConfig>,
+    global_config: Arc<RwLock<GlobalConfig>>,
 
     events_channel_sender: Arc<Sender<AppEvent>>,
 
@@ -73,8 +77,10 @@ pub fn handle_hold_lmb (
     current_weapon_index:   Arc<AtomicUsize>,
 ) {
     'outer: loop {
+        let global_config = &*global_config.read_arc();
+
         // Check that the right button is also held down
-        if global_config.require_right_hold && !right_hold_active.load(Ordering::SeqCst) {
+        if global_config.keybinds.require_right_hold && !right_hold_active.load(Ordering::SeqCst) {
             // Emit an event that shooting has stopped
             if let Err(e) = events_channel_sender.send(AppEvent::StoppedShooting) {
                 eprintln!("Failed to send event: {}", e);
@@ -149,12 +155,12 @@ pub fn handle_hold_lmb (
                 let first_shot_scale = config.first_shot_scale;
                 let first_dx = config.dx * first_shot_scale;
                 let first_dy = config.dy * first_shot_scale;
-                move_down(first_dx, first_dy, 3, interval, true);
+                move_down(global_config, first_dx, first_dy, 3, interval, true);
 
                 let mut iteration = 0;
-                while left_hold_active.load(Ordering::SeqCst) && !(global_config.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) {
+                while left_hold_active.load(Ordering::SeqCst) && !(global_config.keybinds.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) {
                     let dy_total = config.dy * config.exponential_factor.powf(iteration as f32);
-                    move_down(config.dx, dy_total, 10, interval, false);
+                    move_down(global_config, config.dx, dy_total, 10, interval, false);
 
                     println!(":3 -");
                     iteration += 1;
@@ -179,9 +185,10 @@ pub fn handle_hold_lmb (
                 let recoil_completion = Duration::from_millis(config.recoil_completion_ms as u64);
                 let release_delay = Duration::from_millis(config.release_delay_ms as u64);
 
-                while left_hold_active.load(Ordering::SeqCst) && !(global_config.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) {
+                while left_hold_active.load(Ordering::SeqCst) && !(global_config.keybinds.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) {
                     // Move down for the next shot
                     move_down(
+                        global_config, 
                         config.dx,
                         config.dy,
                         10,
@@ -191,7 +198,7 @@ pub fn handle_hold_lmb (
 
                     if !left_hold_active.load(Ordering::SeqCst) || 
                         !config.autofire ||
-                        (global_config.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) 
+                        (global_config.keybinds.require_right_hold && !right_hold_active.load(Ordering::SeqCst)) 
                     {
                         break 'outer;
                     }

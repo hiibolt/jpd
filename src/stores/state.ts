@@ -1,6 +1,21 @@
 // src/stores/state.ts
 import { writable } from 'svelte/store';
 
+type KeybindConfig = {
+    require_right_hold: boolean;
+    primary_weapon: string;
+    secondary_weapon: string;
+    alternative_fire: string;
+};
+type MouseConfig = {
+    horizontal_multiplier: number;
+    vertical_multiplier: number;
+};
+type GlobalConfig = {
+    keybinds: KeybindConfig;
+    mouse_config: MouseConfig;
+};
+
 export type Game = {
     name: string;
     categories: Category[];
@@ -48,6 +63,18 @@ export type Weapons = Record<string, Weapon>;
 
 // App-wide reactive state
 export const games = writable<Game[]>([]);
+export const config = writable<GlobalConfig>({
+    keybinds: {
+        require_right_hold: true,
+        primary_weapon: '1',
+        secondary_weapon: '2',
+        alternative_fire: 'm',
+    },
+    mouse_config: {
+        horizontal_multiplier: 1.0,
+        vertical_multiplier: 1.0,
+    },
+});
 export const current_game_index = writable(0);
 export const current_category_index = writable(0);
 export const current_loadout_index = writable(0);

@@ -27,7 +27,7 @@
         <StatField label="Mag Size" value={config.mag_size} type="number" onChange={(v) => updateField(weaponId, 'mag_size', v)} />
 
         <button class="autofire-toggle" on:click={() =>  updateField(weaponId, 'autofire', !config.autofire)}>
-            {config.autofire ? 'Disable Autofire' : 'Enable Autofire'}
+            <b>{config.autofire ? 'Disable Autofire' : 'Enable Autofire'}</b>
         </button>
 
     {:else if type === 'FullAutoStandard'}
@@ -44,10 +44,10 @@
     .autofire-toggle {
         background: var(--button-bg);
         color: var(--button-fg);
-        border: white 1px solid;
         width: 100%;
         padding: 0.5rem 1rem;
-        border-radius: 4px;
+        border: 1px solid var(--border-color, #ccc);
+        border-radius: 8px;
         cursor: pointer;
         transition: background 0.2s, color 0.2s;
     }

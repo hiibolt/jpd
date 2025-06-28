@@ -62,20 +62,6 @@
         "mag_size": 26
       }
     },
-    "R6_417": {
-      "type": "SingleFire",
-      "config": {
-        "name": "417",
-        "description": "Muzzle Brake, Vertical Grip, ACOG",
-        "trigger_delay_ms": 90,
-        "recoil_completion_ms": 10,
-        "release_delay_ms": 25,
-        "dx": 0.0,
-        "dy": 46.5,
-        "mag_size": 21,
-        "autofire": true
-      }
-    },
     "R6_P12": {
       "type": "SingleFire",
       "config": {
@@ -87,6 +73,20 @@
         "dx": 0.5,
         "dy": 22.0,
         "mag_size": 17,
+        "autofire": true
+      }
+    },
+    "R6_417": {
+      "type": "SingleFire",
+      "config": {
+        "name": "417",
+        "description": "Muzzle Brake, Vertical Grip, ACOG",
+        "trigger_delay_ms": 90,
+        "recoil_completion_ms": 11,
+        "release_delay_ms": 25,
+        "dx": 0.0,
+        "dy": 46.0,
+        "mag_size": 21,
         "autofire": true
       }
     }
