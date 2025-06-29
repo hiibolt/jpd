@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{mpsc::{Sender, Receiver}, atomic::AtomicUsize};
 use std::sync::{Arc, atomic::AtomicBool};
 
@@ -68,8 +69,9 @@ impl Default for GlobalConfig {
 
 #[derive(Clone)]
 pub struct AppState {
-    pub games:         Arc<RwLock<Vec<Game>>>,
-    pub global_config: Arc<RwLock<GlobalConfig>>,
+    pub games:           Arc<RwLock<Vec<Game>>>,
+    pub global_config:   Arc<RwLock<GlobalConfig>>,
+    pub assets_dir_path: Arc<PathBuf>,
     
     pub events_channel_sender:   Arc<Sender<AppEvent>>,
     pub events_channel_reciever: Arc<Mutex<Receiver<AppEvent>>>,

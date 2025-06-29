@@ -3,11 +3,11 @@ mod recoil;
 mod types;
 
 use parking_lot::{Mutex, RwLock};
-use tauri::{ipc::Channel, Builder, Manager};
+use tauri::{ipc::Channel, App, Builder, Manager};
 use window_vibrancy::apply_acrylic;
 use anyhow::{anyhow, Result};
 
-use std::{path::Path, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc}};
+use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc}};
 
 use crate::winapi::main_recoil;
 use crate::types::{AppEvent, AppState, Game, GlobalConfig, Weapon};
@@ -220,8 +220,9 @@ fn get_weapon_id (
 
     Ok(weapon_id.clone())
 }
-fn load_data() -> Result<(Vec<Game>, GlobalConfig), String> {
-    let assets_dir_path = Path::new("..").join("assets");
+fn load_data(
+    assets_dir_path: &PathBuf
+) -> Result<(Vec<Game>, GlobalConfig), String> {
     let config_path = assets_dir_path.join("config.json");
     let games_dir_path = assets_dir_path.join("games");
 
@@ -230,20 +231,22 @@ fn load_data() -> Result<(Vec<Game>, GlobalConfig), String> {
         let default_config = GlobalConfig::default();
         std::fs::write(
             &config_path,
-            serde_json::to_string_pretty(&default_config).map_err(|e| e.to_string())?
-        ).map_err(|e| e.to_string())?;
+            serde_json::to_string_pretty(&default_config).map_err(|e| format!("Failed to serialize default config: {}", e))?
+        ).map_err(|e| format!("Failed to write default config file: {}", e))?;
     }
 
-    // Load global config from `assets/config.json``
+    // Load global config from `assets/config.json`
+    println!("Loading global config from: {}", config_path.display());
     let global_config: GlobalConfig = serde_json::from_str(
-        &std::fs::read_to_string(config_path).map_err(|e| e.to_string())?
-    ).map_err(|e| e.to_string())?;
+        &std::fs::read_to_string(config_path).map_err(|e| format!("Failed to read config file: {}", e))?
+    ).map_err(|e| format!("Failed to parse global config: {}", e))?;
 
     // Load each game's data from `assets/<game_name>/data.json`
     let mut games = Vec::new();
-    for entry in std::fs::read_dir(games_dir_path).map_err(|e| e.to_string())? {
+    println!("Loading games from directory: {}", games_dir_path.display());
+    for entry in std::fs::read_dir(games_dir_path).map_err(|e| format!("Failed to read games directory: {}", e))? {
         let entry = entry.map_err(|e| e.to_string())?;
-        if entry.file_type().map_err(|e| e.to_string())?.is_dir() {
+        if entry.file_type().map_err(|e| format!("Failed to get file type: {e}"))?.is_dir() {
             let game_name = entry.file_name().to_string_lossy().to_string();
             let game_data_path = entry.path().join("data.json");
 
@@ -262,40 +265,66 @@ fn load_data() -> Result<(Vec<Game>, GlobalConfig), String> {
 fn save_data(
     state: &AppState
 ) -> Result<(), String> {
-    let assets_dir_path = Path::new("..").join("assets");
+    let assets_dir_path = &state.assets_dir_path;
 
     // Save config to `assets/config.json`
     let global_config: GlobalConfig = state.global_config.read_arc().clone();
     std::fs::write(
         assets_dir_path.join("config.json"),
         serde_json::to_string_pretty(&global_config).map_err(|e| e.to_string())?
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|e| format!("Failed to write config file: {}", e))?;
 
     // Save each game's data to `assets/<game_name>/data.json`
     let games_dir_path = assets_dir_path.join("games");
     for game in state.games.read_arc().iter() {
         let game_path = games_dir_path.join(&game.name);
         let game_contents = serde_json::to_string_pretty(game)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("Failed to serialize game data: {}", e))?;
 
-        std::fs::create_dir_all(&game_path).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(&game_path).map_err(|e| format!("Failed to create game directory for {}: {}", game.name, e))?;
         std::fs::write(
             game_path.join("data.json"),
             game_contents
-        ).map_err(|e| e.to_string())?;
+        ).map_err(|e| format!("Failed to write game data for {}: {}", game.name, e))?;
     }
 
     Ok(())
 }
 
-async fn setup() -> AppState {
-    let (games, global_config) = load_data()
-        .expect("Failed to load game data!");
+async fn setup(
+    app: &mut App
+) -> AppState {
+    let resource_assets_dir = app.path().resource_dir()
+        .expect("Failed to get resource directory")
+        .join("assets");
+    let assets_dir_path = Arc::new(if resource_assets_dir.exists() {
+        println!("Using resource directory: {}", resource_assets_dir.display());
+        resource_assets_dir
+    } else {
+        println!("Using default assets directory: ./assets");
+        PathBuf::from("assets")
+    });
+
+    let (games, global_config) = match load_data(&assets_dir_path) {
+        Ok(data) => data,
+        Err(e) => {
+            // If loading data fails, create an `assets/logs` directory and log the error
+            let log_dir = assets_dir_path.join("logs");
+            std::fs::create_dir_all(&log_dir).expect("Failed to create logs directory");
+            
+            let log_file_path = log_dir.join("error.log");
+            std::fs::write(&log_file_path, &e).expect("Failed to write error log");
+            eprintln!("Failed to load data: {}. Error logged to {}", e, log_file_path.display());
+            
+            panic!("Failed to load data: {}", e);
+        }
+    };
 
     let (event_tx, event_rx) = std::sync::mpsc::channel();
     let state = AppState {
-        games:         Arc::new(RwLock::new(games)),
-        global_config: Arc::new(RwLock::new(global_config)),
+        games:           Arc::new(RwLock::new(games)),
+        global_config:   Arc::new(RwLock::new(global_config)),
+        assets_dir_path,
 
         events_channel_sender:   Arc::new(event_tx),
         events_channel_reciever: Arc::new(Mutex::new(event_rx)),
@@ -318,6 +347,7 @@ async fn setup() -> AppState {
 pub fn run() {
     Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             get_games,
             get_config,
@@ -333,7 +363,7 @@ pub fn run() {
             start_channel_reads
         ])
         .setup(|app| {
-            let state = tauri::async_runtime::block_on(setup());
+            let state = tauri::async_runtime::block_on(setup(app));
             let window = app.get_webview_window("main").expect("Failed to get main window");
 
             // Apply vibrancy effect on Windows

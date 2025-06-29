@@ -266,7 +266,7 @@ unsafe extern "system" fn wnd_proc(
                         println!("Reloading config...");
 
                         // Load the config from the file
-                        match load_data() {
+                        match load_data(&state.assets_dir_path) {
                             Ok((games, global_config)) => {
                                 let mut state_games = state.games.write_arc();
                                 *state_games = games;
