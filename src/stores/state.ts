@@ -18,8 +18,9 @@ export type GlobalConfig = {
 
 export type Game = {
     name: string;
-    categories: Category[];
-    weapons: Weapons;
+    key?: string;
+    categories?: Category[];
+    weapons?: Weapons;
 };
 export type Category = {
     name: string;

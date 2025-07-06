@@ -6,6 +6,20 @@ use std::sync::{Arc, atomic::AtomicBool};
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 
+pub struct LoadedData {
+    pub available_games: Vec<String>,
+    pub game_data: Vec<Game>,
+    pub global_config: GlobalConfig,
+    pub key_statuses: Vec<KeyStatus>,
+}
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(tag = "type")]
+pub enum KeyStatus {
+    Invalid { key: String },
+    Valid { key: String, timestamp: u64, config: Game },
+    Expired { key: String, timestamp: u64 },
+    Banned { key: String }
+}
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "event", content = "data")]
 pub enum AppEvent {
@@ -76,14 +90,14 @@ pub struct AppState {
     pub events_channel_sender:   Arc<Sender<AppEvent>>,
     pub events_channel_reciever: Arc<Mutex<Receiver<AppEvent>>>,
 
-    pub left_hold_active:  Arc<AtomicBool>,
-    pub right_hold_active: Arc<AtomicBool>,
+    pub left_hold_active:       Arc<AtomicBool>,
+    pub right_hold_active:      Arc<AtomicBool>,
     pub current_game_index:     Arc<AtomicUsize>,
     pub current_category_index: Arc<AtomicUsize>,
     pub current_loadout_index:  Arc<AtomicUsize>,
     pub current_weapon_index:   Arc<AtomicUsize>,
 }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SingleFireConfig {
     pub name: String,
     pub description: Option<String>,
@@ -95,11 +109,11 @@ pub struct SingleFireConfig {
     pub mag_size: u32,
     pub autofire: bool,
 }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FullAutoStandardConfig {
     pub name: String,
     pub description: Option<String>,
-    pub rpm: u128,
+    pub rpm: u64,
     pub first_shot_scale: f32,
     pub exponential_factor: f32,
     pub dx: f32,
@@ -107,18 +121,19 @@ pub struct FullAutoStandardConfig {
     pub mag_size: u32,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Game {
     pub name:       String,
-    pub categories: Vec<Category>,
-    pub weapons:    HashMap<String, Weapon>,
+    pub key:        Option<String>,
+    pub categories: Option<Vec<Category>>,
+    pub weapons:    Option<HashMap<String, Weapon>>,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Category {
     pub name: String,
     pub loadouts: Vec<Loadout>,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Loadout {
     pub name: String,
     pub icon_url: Option<String>,
@@ -126,7 +141,7 @@ pub struct Loadout {
     pub icon_only: bool,
     pub weapon_ids: Vec<String>,
 }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type", content = "config")]
 pub enum Weapon {
     SingleFire(SingleFireConfig),

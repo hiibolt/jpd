@@ -104,7 +104,7 @@ pub fn handle_hold_lmb (
 
         // Get the weapon configuration
         let weapon_ind = state.current_weapon_index.load(Ordering::SeqCst);
-        let weapon = match current_game.weapons.get(&weapon_id) {
+        let weapon = match current_game.weapons.as_ref().map(|w| w.get(&weapon_id)).flatten() {
             Some(weapon) => weapon.clone(),
             None => {
                 eprintln!("Weapon not found: {}", weapon_id);
@@ -121,10 +121,10 @@ pub fn handle_hold_lmb (
         let mut rounds_fired = 1;
         match weapon {
             Weapon::FullAutoStandard(config) => {
-                let seconds_in_minute = 60u128;
-                let nanoseconds_in_second = 1_000_000_000u128;
+                let seconds_in_minute = 60u64;
+                let nanoseconds_in_second = 1_000_000_000u64;
                 let nanoseconds_per_move = (nanoseconds_in_second * seconds_in_minute) / config.rpm;
-                let interval = Duration::from_nanos(nanoseconds_per_move as u64);
+                let interval = Duration::from_nanos(nanoseconds_per_move);
 
                 // Handle the first shot with scaled movement
                 let first_shot_scale = config.first_shot_scale;

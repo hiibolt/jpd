@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 
 use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc}};
 
-use crate::winapi::main_recoil;
+use crate::{types::{KeyStatus, LoadedData}, winapi::main_recoil};
 use crate::types::{AppEvent, AppState, Game, GlobalConfig, Weapon};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -53,7 +53,7 @@ async fn change_category (
     let current_game_index = state.current_game_index.load(std::sync::atomic::Ordering::Relaxed);
 
     if let Some(game) = state.games.read_arc().get(current_game_index) {
-        if new_category_index < game.categories.len() {
+        if new_category_index <     game.categories.as_ref().map(|c| c.len()).unwrap_or(0) {
             state.current_category_index.store(new_category_index, std::sync::atomic::Ordering::Relaxed);
             println!("Changed category to index {}", new_category_index);
             return Ok(new_category_index);
@@ -129,7 +129,10 @@ async fn change_loadout (
     let current_category_index = state.current_category_index.load(std::sync::atomic::Ordering::Relaxed);
 
     if let Some(game) = state.games.read_arc().get(current_game_index) {
-        if let Some(category) = game.categories.get(current_category_index) {
+        if let Some(category) = game.categories
+            .as_ref().ok_or(format!("Game `{}` does not have data loaded.", current_game_index))?
+            .get(current_category_index)
+        {
             if new_loadout_index < category.loadouts.len() {
                 state.current_loadout_index.store(new_loadout_index, std::sync::atomic::Ordering::Relaxed);
                 println!("Changed loadout to index {}", new_loadout_index);
@@ -153,7 +156,9 @@ fn set_weapon_config(
     
     match state.games.write_arc()
         .get_mut(current_game_index).ok_or(format!("Game index {} not found", current_game_index))?
-        .weapons.get_mut(&weapon_id)
+        .weapons.as_mut()
+        .ok_or(format!("No weapons found in game `{}`", current_game_index))?
+        .get_mut(&weapon_id)
         .ok_or(format!("Weapon ID `{}` not found in game `{}`", weapon_id, current_game_index))?
     {
         Weapon::SingleFire(weapon_config) => {
@@ -174,7 +179,7 @@ fn set_weapon_config(
             match field.as_str() {
                 "name" => weapon_config.name = new_value.as_str().ok_or("Invalid value for name")?.to_string(),
                 "description" => weapon_config.description = new_value.as_str().map(|s| s.to_string()),
-                "rpm" => weapon_config.rpm = new_value.as_u64().ok_or("Invalid value for rpm")? as u128,
+                "rpm" => weapon_config.rpm = new_value.as_u64().ok_or("Invalid value for rpm")?,
                 "first_shot_scale" => weapon_config.first_shot_scale = new_value.as_f64().ok_or("Invalid value for first_shot_scale")? as f32,
                 "exponential_factor" => weapon_config.exponential_factor = new_value.as_f64().ok_or("Invalid value for exponential_factor")? as f32,
                 "dx" => weapon_config.dx = new_value.as_f64().ok_or("Invalid value for dx")? as f32,
@@ -205,7 +210,9 @@ fn get_weapon_id (
 
     // Get the current category
     let current_category_index = state.current_category_index.load(Ordering::SeqCst);
-    let current_category = &current_game.categories.get(current_category_index)
+    let current_category = &current_game.categories
+        .as_ref().ok_or(anyhow!("Game `{}` does not have categories loaded", current_game.name))?
+        .get(current_category_index)
         .ok_or(anyhow!("Category index {} not found in game `{}`", current_category_index, current_game.name))?;
 
     // Get the current loadout
@@ -222,9 +229,8 @@ fn get_weapon_id (
 }
 fn load_data(
     assets_dir_path: &PathBuf
-) -> Result<(Vec<Game>, GlobalConfig), String> {
+) -> Result<LoadedData, String> {
     let config_path = assets_dir_path.join("config.json");
-    let games_dir_path = assets_dir_path.join("games");
 
     // If the `assets/config.json` file does not exist, create it with default values
     if !config_path.exists() {
@@ -241,26 +247,90 @@ fn load_data(
         &std::fs::read_to_string(config_path).map_err(|e| format!("Failed to read config file: {}", e))?
     ).map_err(|e| format!("Failed to parse global config: {}", e))?;
 
-    // Load each game's data from `assets/<game_name>/data.json`
-    let mut games = Vec::new();
-    println!("Loading games from directory: {}", games_dir_path.display());
-    for entry in std::fs::read_dir(games_dir_path).map_err(|e| format!("Failed to read games directory: {}", e))? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        if entry.file_type().map_err(|e| format!("Failed to get file type: {e}"))?.is_dir() {
-            let game_name = entry.file_name().to_string_lossy().to_string();
-            let game_data_path = entry.path().join("data.json");
+    // Load each game's data from `assets/games.json`
+    let mut games_ret = Vec::new();
+    let mut key_statuses_ret = Vec::new();
 
-            match std::fs::read_to_string(&game_data_path) {
-                Ok(data) => match serde_json::from_str::<Game>(&data) {
-                    Ok(game) => games.push(game),
-                    Err(e) => return Err(format!("Failed to parse game data for {}: {}", game_name, e)),
+    // Load the games
+    let server_base_url = "http://localhost:4777";
+    let game_list = ureq::get(format!("{server_base_url}/v1/products/jpd"))
+        .call()
+        .map_err(|e| format!("Failed to fetch games list: {}", e))?
+        .body_mut()
+        .read_json::<Vec<String>>()
+        .map_err(|e| format!("Failed to read games list: {}", e))?;
+    println!("Available games configs: {:?}", game_list);
+
+    for game_id in &game_list {
+        // Attempt to load the contents of `assets/{game}.key`
+        let game_key_path = assets_dir_path.join(format!("{}.key", game_id));
+        let key = if game_key_path.exists() {
+            match std::fs::read_to_string(&game_key_path) {
+                Ok(key) => {
+                    println!("Loaded key for game `{}` from file: {}", game_id, game_key_path.display());
+                    key
                 },
-                Err(_) => return Err(format!("Failed to read game data for {}", game_name)),
+                Err(e) => {
+                    eprintln!("Failed to read key file for game `{}`: {}", game_id, e);
+                    games_ret.push(Game {
+                        name: game_id.clone(),
+                        key: None,
+                        categories: None,
+                        weapons: None,
+                    });
+                    continue; // Skip this game if the key file cannot be read
+                }
             }
+        } else {
+            println!("No key file found for game `{}`, skipping", game_id);
+            games_ret.push(Game {
+                name: game_id.clone(),
+                key: None,
+                categories: None,
+                weapons: None,
+            });
+            continue; // Skip this game if no key file exists
+        };
+
+        let url = format!(
+            "{server_base_url}/v1/validate/jpd/{}/{}",
+            game_id, key
+        );
+
+        let key_status = ureq::get(url)
+            .call()
+            .map_err(|e| format!("Failed to validate key for game `{}`: {}", game_id, e))?
+            .body_mut()
+            .read_json::<KeyStatus>()
+            .map_err(|e| format!("Failed to read key status for game `{}`: {}", game_id, e))?;
+
+        if let KeyStatus::Valid { config, .. } = &key_status {
+            println!("Key for game `{}` is valid, loading config", game_id);
+            let mut config = config.clone();
+            config.key = Some(key);
+            games_ret.push(config);
+        } else {
+            println!("Key for game `{}` is invalid or expired, skipping", game_id);
+            games_ret.push(Game {
+                name: game_id.clone(),
+                key: Some(key),
+                categories: None,
+                weapons: None,
+            });
+            continue; // Skip this game if the key is invalid
         }
+
+        key_statuses_ret.push(key_status);
     }
 
-    Ok((games, global_config))
+    println!("Loaded {} games", games_ret.len());
+
+    Ok(LoadedData { 
+        available_games: game_list,
+        game_data: games_ret,
+        global_config,
+        key_statuses: key_statuses_ret
+    })
 }
 fn save_data(
     state: &AppState
@@ -305,7 +375,12 @@ async fn setup(
         PathBuf::from("assets")
     });
 
-    let (games, global_config) = match load_data(&assets_dir_path) {
+    let LoadedData { 
+        available_games,
+        game_data,
+        global_config,
+        key_statuses
+    } = match load_data(&assets_dir_path) {
         Ok(data) => data,
         Err(e) => {
             // If loading data fails, create an `assets/logs` directory and log the error
@@ -322,7 +397,7 @@ async fn setup(
 
     let (event_tx, event_rx) = std::sync::mpsc::channel();
     let state = AppState {
-        games:           Arc::new(RwLock::new(games)),
+        games:           Arc::new(RwLock::new(game_data)),
         global_config:   Arc::new(RwLock::new(global_config)),
         assets_dir_path,
 

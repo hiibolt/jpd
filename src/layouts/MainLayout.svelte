@@ -17,9 +17,9 @@
 	import { changeHorizontalMultiplier, changeVerticalMultiplier } from '../lib/api';
 
 
-    $: currentGame = $games[$current_game_index] ?? { name: 'Game Not Foun', categories: [], weapons: [] };
-    $: loadouts = currentGame.categories[$current_category_index]?.loadouts ?? [];
-    $: currentLoadout = loadouts[$current_loadout_index] ?? { name: 'Loadouts Not Found', weapon_ids: [] };
+    $: currentGame = $games[$current_game_index] ?? { name: 'Game Not Found', categories: [], weapons: [] };
+    $: loadouts = currentGame.categories?.at($current_category_index)?.loadouts ?? [];
+    $: currentLoadout = loadouts?.at($current_loadout_index) ?? { name: 'Loadouts Not Found', weapon_ids: [] };
 </script>
 
 <Background />
@@ -46,7 +46,7 @@
             {#each currentLoadout.weapon_ids as id, i}
             <WeaponCard
                 weaponId={id}
-                weapon={currentGame.weapons[id] ?? null}
+                weapon={(currentGame.weapons ?? {})[id] ?? null}
                 active={$current_weapon_index === i}
                 shooting={$shooting && $current_weapon_index === i}
             />
@@ -58,7 +58,7 @@
               value={$config.mouse_config.horizontal_multiplier}
               type="number"
               onChange={(v) => {
-				changeHorizontalMultiplier(v);
+				        changeHorizontalMultiplier(v);
               }}
             />
             <StatField
@@ -66,7 +66,7 @@
               value={$config.mouse_config.vertical_multiplier}
               type="number"
               onChange={(v) => {
-				changeVerticalMultiplier(v);
+				        changeVerticalMultiplier(v);
               }}
             />
         </div>

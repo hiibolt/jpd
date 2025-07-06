@@ -2,7 +2,7 @@ extern crate winapi;
 
 use crate::{get_weapon_id, load_data, save_data};
 use crate::recoil::handle_hold_lmb;
-use crate::types::{AppEvent, AppState, Weapon};
+use crate::types::{AppEvent, AppState, LoadedData, Weapon};
 
 use std::time::Duration;
 use std::{mem, ptr, thread};
@@ -190,7 +190,7 @@ unsafe extern "system" fn wnd_proc(
                 if !state_ptr.is_null() {
                     let state: &AppState = unsafe { &*state_ptr };
 
-                    let global_config = state.global_config.read_arc();
+                    let global_config = state.global_config.read_arc().clone();
                     let primary_key   = char_to_vk(global_config.keybinds.primary_weapon);
                     let secondary_key = char_to_vk(global_config.keybinds.secondary_weapon);
 
@@ -234,7 +234,13 @@ unsafe extern "system" fn wnd_proc(
                             return 0;
                         };
                         
-                        let weapon = if let Some(weapon) = current_game.weapons.get_mut(&current_weapon_id) { weapon } else {
+                        let weapon = if let Some(weapon) = current_game.weapons
+                            .as_mut()
+                            .map(|w| w.get_mut(&current_weapon_id))
+                            .flatten()
+                        {
+                            weapon 
+                        } else {
                             eprintln!("Weapon not found: {}", current_weapon_id);
                             return 0;
                         };
@@ -266,25 +272,38 @@ unsafe extern "system" fn wnd_proc(
                         println!("Reloading config...");
 
                         // Load the config from the file
-                        match load_data(&state.assets_dir_path) {
-                            Ok((games, global_config)) => {
-                                let mut state_games = state.games.write_arc();
-                                *state_games = games;
+                        let game_data = match load_data(&state.assets_dir_path) {
+                            Ok(LoadedData { 
+                                available_games,
+                                game_data,
+                                global_config,
+                                key_statuses
+                            }) => {
+                                println!("Saving game config...");
+                                *state.games.write_arc() = game_data.clone();
+                                println!("Saving global config...");
                                 *state.global_config.write_arc() = global_config;
+                                println!("Successfully reloaded config");
 
-                                // Emit an event that the config has been updated
-                                if let Err(e) = state.events_channel_sender.send(AppEvent::UpdatedGames {
-                                    games: state_games.clone(),
-                                }) {
-                                    eprintln!("Failed to send event: {}", e);
-                                }
+                                Some(game_data)
                             },
                             Err(e) => {
                                 eprintln!("Failed to load data: {}", e);
+
+                                None
+                            }
+                        };
+
+                        // Emit an event that the config has been updated
+                        println!("Emitting updated games event...");
+                        if let Some(game_data) = game_data {
+                            if let Err(e) = state.events_channel_sender.send(AppEvent::UpdatedGames {
+                                games: game_data,
+                            }) {
+                                eprintln!("Failed to send event: {}", e);
                             }
                         }
-
-                        println!("Config reloaded successfully.");
+                        println!("Config reloaded successfully");
                     }
                 }
             }

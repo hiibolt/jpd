@@ -3,6 +3,7 @@
 
     import { type Game, current_game_index } from "../stores/state";
     import { changeGame } from "$lib/api";
+    import GameKeyField from "./GameKeyField.svelte";
 
     export let game: Game;
     export let index: number;
@@ -17,10 +18,11 @@
     <div class="game-name">
         {game.name}
     </div>
+    <GameKeyField {game} />
     {#if open}
         <div class="game-categories">
-            {#if game.categories.length > 0}
-                {#each game.categories as category, index}
+            {#if game.categories?.length ?? 0 > 0}
+                {#each game.categories ?? [] as category, index}
                     <CategoryCard
                         category={category}
                         index={index}
