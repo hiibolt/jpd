@@ -8,9 +8,7 @@ import {
     current_category_index,
     current_game_index,
     config,
-    type GlobalConfig,
     type Game,
-    type KeyStatus,
     errors
 } from '../stores/state';
 
