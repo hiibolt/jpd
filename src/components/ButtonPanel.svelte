@@ -13,9 +13,6 @@
         {#if currentPage !== 'settings'}
             <a href="/settings"><button data-tooltip="Settings">⚙️</button></a>
         {/if}
-        {#if currentPage !== 'account'}
-            <a href="/account"><button data-tooltip="Account">👤</button></a>
-        {/if}
     </div>
 </div>
 

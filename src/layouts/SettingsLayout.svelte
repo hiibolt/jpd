@@ -1,7 +1,7 @@
 <script lang="ts">
     import Titlebar from '../components/Titlebar.svelte';
     import Banner from '../components/Banner.svelte';
-    import AccountPanel from '../components/AccountPanel.svelte';
+    import ButtonPanel from '../components/ButtonPanel.svelte';
     import Background from '../components/Background.svelte';
     import ConfigGroup from '../components/ConfigGroup.svelte';
     import { config } from '../stores/state';
@@ -30,14 +30,14 @@
             <div class="card upper-right-card">
                 <h3>Settings</h3>
                 <p>
-                    Manage your account settings and preferences.
+                    Manage your settings and preferences.
                     <br>
                     <br>
                     Need help? Reach out to CLC and open a support ticket - we're here to help you play best.
                 </p>
             </div>
 
-            <AccountPanel currentPage="settings"/>
+            <ButtonPanel currentPage="settings"/>
         </div>
     </div>
 </main>

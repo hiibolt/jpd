@@ -3,7 +3,7 @@
     import Banner from '../components/Banner.svelte';
     import GameCard from '../components/GameCard.svelte';
     import WeaponCard from '../components/WeaponCard.svelte';
-    import AccountPanel from '../components/AccountPanel.svelte';
+    import ButtonPanel from '../components/ButtonPanel.svelte';
     import Background from '../components/Background.svelte';
 
     import {
@@ -85,7 +85,7 @@
 			}}
 			/>
 		</div>
-		<AccountPanel currentPage="home"/>
+		<ButtonPanel currentPage="home"/>
 		</div>
 	</div>
 </main>
