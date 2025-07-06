@@ -8,7 +8,6 @@ import {
     current_category_index,
     current_game_index,
     config,
-    type GlobalConfig,
     type Game,
     errors
 } from '../stores/state';
@@ -113,4 +112,15 @@ export async function setWeaponConfig ( weaponId: string, field: string, newValu
     invoke('set_weapon_config', { weaponId, field, newValue })
         .then((new_games) => games.set(new_games as any))
         .catch((error) => handleError('Set weapon config failed', error));
+}
+
+export async function submitGameKey(gameName: string, key: string): Promise<Game[] | null> {
+    try {
+        const updatedGames = await invoke('submit_game_key', { gameName, key });
+        games.set(updatedGames as Game[]);
+        return updatedGames as Game[];
+    } catch (error) {
+        handleError('Submit game key failed', error);
+        return null;
+    }
 }

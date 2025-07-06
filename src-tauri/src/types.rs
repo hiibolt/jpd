@@ -8,11 +8,18 @@ use serde::{Deserialize, Serialize};
 
 pub struct LoadedGames {
     pub game_data: Vec<Game>,
-    pub key_statuses: Vec<KeyStatus>,
 }
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 #[serde(tag = "type")]
 pub enum KeyStatus {
+    Invalid { key: String },
+    Valid { key: String, timestamp: u64 },
+    Expired { key: String, timestamp: u64 },
+    Banned { key: String }
+}
+#[derive(Clone, Deserialize, Serialize, Debug)]
+#[serde(tag = "type")]
+pub enum KeyStatusResponse {
     Invalid { key: String },
     Valid { key: String, timestamp: u64, config: Game },
     Expired { key: String, timestamp: u64 },
@@ -123,6 +130,7 @@ pub struct FullAutoStandardConfig {
 pub struct Game {
     pub name:       String,
     pub key:        Option<String>,
+    pub key_status: Option<KeyStatus>,
     pub categories: Option<Vec<Category>>,
     pub weapons:    Option<HashMap<String, Weapon>>,
 }
