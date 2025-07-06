@@ -14,11 +14,7 @@
     export let configOptions: ConfigOption[] = [];
 
     function handleUpdate(key: string, value: string | boolean | number) {
-        changeSetting(key, value).then(() => {
-            console.log(`Updated ${key} to`, key);
-        }).catch((error) => {
-            console.error(`Failed to update ${key}:`, error);
-        });
+        changeSetting(key, value);
     }
 </script>
 

@@ -1,12 +1,13 @@
 extern crate winapi;
 
-use crate::{get_weapon_id, load_data, save_data};
+use crate::{get_weapon_id, load_config, load_games, save_data};
 use crate::recoil::handle_hold_lmb;
-use crate::types::{AppEvent, AppState, LoadedData, Weapon};
+use crate::types::{AppEvent, AppState, LoadedGames, Weapon};
 
 use std::time::Duration;
 use std::{mem, ptr, thread};
 use std::sync::atomic::Ordering;
+use tokio::runtime::Handle;
 use winapi::shared::hidusage::*;
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
@@ -272,27 +273,30 @@ unsafe extern "system" fn wnd_proc(
                         println!("Reloading config...");
 
                         // Load the config from the file
-                        let game_data = match load_data(&state.assets_dir_path) {
-                            Ok(LoadedData { 
-                                available_games,
-                                game_data,
-                                global_config,
-                                key_statuses
-                            }) => {
-                                println!("Saving game config...");
-                                *state.games.write_arc() = game_data.clone();
-                                println!("Saving global config...");
-                                *state.global_config.write_arc() = global_config;
+                        match load_config(&state.assets_dir_path) {
+                            Ok(config) => {
+                                println!("Reloading global config...");
+                                *state.global_config.write_arc() = config;
                                 println!("Successfully reloaded config");
-
-                                Some(game_data)
                             },
                             Err(e) => {
                                 eprintln!("Failed to load data: {}", e);
+                            }
+                        }
 
+                        // Load the games
+                        let handle = Handle::current();
+                        let handle_guard = handle.enter();
+                        let game_data = match futures::executor::block_on(load_games((*state.assets_dir_path).clone())) {
+                            Ok(LoadedGames { game_data, .. }) => {
+                                Some(game_data)
+                            },
+                            Err(e) => {
+                                eprintln!("Failed to load games: {}", e);
                                 None
                             }
                         };
+                        drop(handle_guard);
 
                         // Emit an event that the config has been updated
                         println!("Emitting updated games event...");

@@ -9,7 +9,8 @@ import {
     current_game_index,
     config,
     type GlobalConfig,
-    type Game
+    type Game,
+    errors
 } from '../stores/state';
 
 type UpdatedGamesEvent = {
@@ -32,19 +33,32 @@ type Event = UpdatedGamesEvent | SwitchedWeaponEvent | StartedShootingEvent | St
 let channel: Channel<Event>;
 
 export async function initialize() {
-    const loadedLoadouts = await invoke('get_games');
-    games.set(loadedLoadouts as any);
-    console.log('Games loaded:', loadedLoadouts);
+    try {
+        await invoke('load_games_wrapper');
+        console.log('Games loaded successfully');
 
-    const loadedConfig = await invoke('get_config');
-    config.set(loadedConfig as any);
-    console.log('Config loaded:', loadedConfig);
+        const loadedLoadouts = await invoke('get_games');
+        games.set(loadedLoadouts as any);
+        console.log('Games loaded:', loadedLoadouts);
 
-    channel = new Channel<Event>();
-    channel.onmessage = handleChannelEvent;
-    await invoke('start_channel_reads', { channel });
+        const loadedConfig = await invoke('get_config');
+        config.set(loadedConfig as any);
+        console.log('Config loaded:', loadedConfig);
+
+        channel = new Channel<Event>();
+        channel.onmessage = handleChannelEvent;
+        await invoke('start_channel_reads', { channel });
+    } catch (error: any) {
+        handleError('Initialization failed', error);
+    }
 }
 
+function handleError(context: string, error: any) {
+    console.error(`${context}: `, error);
+
+    // Push the error message to the errors store
+    errors.update((currentErrors) => [...currentErrors, String(error)]);
+}
 function handleChannelEvent(message: Event) {
     switch (message.event) {
         case 'UpdatedGames':
@@ -65,28 +79,38 @@ function handleChannelEvent(message: Event) {
             console.warn('Unknown channel message', message);
     }
 }
-
-export async function changeGame(index: number) {
-    const newIndex = await invoke('change_game', { newGameIndex: index });
-    current_game_index.set(newIndex as number);
+export function changeGame(index: number) {
+    invoke('change_game', { newGameIndex: index })
+        .then((newIndex) => current_game_index.set(newIndex as number))
+        .catch((error) => handleError('Change to game failed', error));
 }
-export async function changeCategory(index: number) {
-    const newIndex = await invoke('change_category', { newCategoryIndex: index });
-    current_category_index.set(newIndex as number);
+export function changeCategory(index: number) {
+    invoke('change_category', { newCategoryIndex: index })
+        .then((newIndex) => current_category_index.set(newIndex as number))
+        .catch((error) => handleError('Change to category failed', error));
 }
-export async function changeLoadout(index: number) {
-    const newIndex = await invoke('change_loadout', { newLoadoutIndex: index });
-    current_loadout_index.set(newIndex as number);
+export function changeLoadout(index: number) {
+    invoke('change_loadout', { newLoadoutIndex: index })
+        .then((newIndex) => current_loadout_index.set(newIndex as number))
+        .catch((error) => handleError('Change to loadout failed', error));
 }
-export async function changeHorizontalMultiplier(newMultiplier: number) {
-    const new_config = await invoke('change_horizontal_multiplier', { newMultiplier });
-    config.set(new_config as any);
+export function changeHorizontalMultiplier(newMultiplier: number) {
+    invoke('change_horizontal_multiplier', { newMultiplier })
+        .then((new_config) => config.set(new_config as any))
+        .catch((error) => handleError('Change to horizontal multiplier failed', error));
 }
-export async function changeVerticalMultiplier(newMultiplier: number) {
-    const new_config = await invoke('change_vertical_multiplier', { newMultiplier });
-    config.set(new_config as any);
+export function changeVerticalMultiplier(newMultiplier: number) {
+    invoke('change_vertical_multiplier', { newMultiplier })
+        .then((new_config) => config.set(new_config as any))
+        .catch((error) => handleError('Change to vertical multiplier failed', error));
 }
-export async function changeSetting(setting: string, value: string | boolean | number) {
-    const new_config = await invoke('change_setting', { setting, value });
-    config.set(new_config as any);
+export function changeSetting(setting: string, value: string | boolean | number) {
+    invoke('change_setting', { setting, value })
+        .then((new_config) => config.set(new_config as any))
+        .catch((error) => handleError('Change to settings failed', error));
+}
+export async function setWeaponConfig ( weaponId: string, field: string, newValue: any ) {
+    invoke('set_weapon_config', { weaponId, field, newValue })
+        .then((new_games) => games.set(new_games as any))
+        .catch((error) => handleError('Set weapon config failed', error));
 }

@@ -6,10 +6,8 @@ use std::sync::{Arc, atomic::AtomicBool};
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 
-pub struct LoadedData {
-    pub available_games: Vec<String>,
+pub struct LoadedGames {
     pub game_data: Vec<Game>,
-    pub global_config: GlobalConfig,
     pub key_statuses: Vec<KeyStatus>,
 }
 #[derive(Deserialize, Serialize, Debug)]

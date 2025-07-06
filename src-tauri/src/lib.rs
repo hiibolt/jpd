@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 
 use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc}};
 
-use crate::{types::{KeyStatus, LoadedData}, winapi::main_recoil};
+use crate::{types::{KeyStatus, LoadedGames}, winapi::main_recoil};
 use crate::types::{AppEvent, AppState, Game, GlobalConfig, Weapon};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -199,6 +199,19 @@ fn set_weapon_config(
     // Return the updated games list
     Ok(state.games.read_arc().clone())
 }
+#[tauri::command]
+async fn load_games_wrapper (
+    state: tauri::State<'_, AppState>
+) -> Result<(), String> {
+    let LoadedGames {
+        game_data,
+        ..
+    } = load_games((*state.assets_dir_path).clone()).await?;
+
+    *state.games.write_arc() = game_data;
+
+    Ok(())
+}
 
 fn get_weapon_id (
     state: &AppState,
@@ -227,37 +240,20 @@ fn get_weapon_id (
 
     Ok(weapon_id.clone())
 }
-fn load_data(
-    assets_dir_path: &PathBuf
-) -> Result<LoadedData, String> {
-    let config_path = assets_dir_path.join("config.json");
-
-    // If the `assets/config.json` file does not exist, create it with default values
-    if !config_path.exists() {
-        let default_config = GlobalConfig::default();
-        std::fs::write(
-            &config_path,
-            serde_json::to_string_pretty(&default_config).map_err(|e| format!("Failed to serialize default config: {}", e))?
-        ).map_err(|e| format!("Failed to write default config file: {}", e))?;
-    }
-
-    // Load global config from `assets/config.json`
-    println!("Loading global config from: {}", config_path.display());
-    let global_config: GlobalConfig = serde_json::from_str(
-        &std::fs::read_to_string(config_path).map_err(|e| format!("Failed to read config file: {}", e))?
-    ).map_err(|e| format!("Failed to parse global config: {}", e))?;
-
+async fn load_games (
+    assets_dir_path: PathBuf
+) -> Result<LoadedGames, String> {
     // Load each game's data from `assets/games.json`
     let mut games_ret = Vec::new();
     let mut key_statuses_ret = Vec::new();
 
     // Load the games
     let server_base_url = "http://localhost:4777";
-    let game_list = ureq::get(format!("{server_base_url}/v1/products/jpd"))
-        .call()
+    let game_list = reqwest::get(format!("{server_base_url}/v1/products/jpd"))
+        .await
         .map_err(|e| format!("Failed to fetch games list: {}", e))?
-        .body_mut()
-        .read_json::<Vec<String>>()
+        .json::<Vec<String>>()
+        .await
         .map_err(|e| format!("Failed to read games list: {}", e))?;
     println!("Available games configs: {:?}", game_list);
 
@@ -297,11 +293,11 @@ fn load_data(
             game_id, key
         );
 
-        let key_status = ureq::get(url)
-            .call()
+        let key_status = reqwest::get(url)
+            .await
             .map_err(|e| format!("Failed to validate key for game `{}`: {}", game_id, e))?
-            .body_mut()
-            .read_json::<KeyStatus>()
+            .json::<KeyStatus>()
+            .await
             .map_err(|e| format!("Failed to read key status for game `{}`: {}", game_id, e))?;
 
         if let KeyStatus::Valid { config, .. } = &key_status {
@@ -325,12 +321,32 @@ fn load_data(
 
     println!("Loaded {} games", games_ret.len());
 
-    Ok(LoadedData { 
-        available_games: game_list,
+    Ok(LoadedGames {
         game_data: games_ret,
-        global_config,
-        key_statuses: key_statuses_ret
+        key_statuses: key_statuses_ret,
     })
+}
+fn load_config (
+    assets_dir_path: &PathBuf
+) -> Result<GlobalConfig, String> {
+    let config_path = assets_dir_path.join("config.json");
+
+    // If the `assets/config.json` file does not exist, create it with default values
+    if !config_path.exists() {
+        let default_config = GlobalConfig::default();
+        std::fs::write(
+            &config_path,
+            serde_json::to_string_pretty(&default_config).map_err(|e| format!("Failed to serialize default config: {}", e))?
+        ).map_err(|e| format!("Failed to write default config file: {}", e))?;
+    }
+
+    // Load global config from `assets/config.json`
+    println!("Loading global config from: {}", config_path.display());
+    let global_config: GlobalConfig = serde_json::from_str(
+        &std::fs::read_to_string(config_path).map_err(|e| format!("Failed to read config file: {}", e))?
+    ).map_err(|e| format!("Failed to parse global config: {}", e))?;
+
+    Ok(global_config)
 }
 fn save_data(
     state: &AppState
@@ -375,12 +391,7 @@ async fn setup(
         PathBuf::from("assets")
     });
 
-    let LoadedData { 
-        available_games,
-        game_data,
-        global_config,
-        key_statuses
-    } = match load_data(&assets_dir_path) {
+    let config = match load_config(&assets_dir_path) {
         Ok(data) => data,
         Err(e) => {
             // If loading data fails, create an `assets/logs` directory and log the error
@@ -397,8 +408,8 @@ async fn setup(
 
     let (event_tx, event_rx) = std::sync::mpsc::channel();
     let state = AppState {
-        games:           Arc::new(RwLock::new(game_data)),
-        global_config:   Arc::new(RwLock::new(global_config)),
+        games:           Arc::new(RwLock::new(vec!())),
+        global_config:   Arc::new(RwLock::new(config)),
         assets_dir_path,
 
         events_channel_sender:   Arc::new(event_tx),
@@ -434,6 +445,7 @@ pub fn run() {
             change_vertical_multiplier,
             change_setting,
 
+            load_games_wrapper,
             set_weapon_config,
             start_channel_reads
         ])

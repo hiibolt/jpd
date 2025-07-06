@@ -10,7 +10,10 @@
       games,
       current_loadout_index, current_weapon_index, current_category_index, current_game_index,
       shooting, 
-      config
+      config,
+
+      errors
+
 
     } from '../stores/state';
     import StatField from '../components/StatField.svelte';
@@ -24,55 +27,67 @@
 
 <Background />
 <main class="container">
-    <Titlebar />
-    <Banner />
+	<Titlebar />
+	<Banner />
 
-    <div class="main-layout">
-        <!-- Loadouts -->
-        <div class="left-column card">
-        {#if $games.length > 0}
-          {#each $games as game, index}
-            <GameCard game={game} index={index} />
-          {/each}
-        {:else}
-            <h2>Loading Games...</h2>
-        {/if}
-        </div>
+	<div class="main-layout">
+		<!-- Loadouts -->
+		<div class="left-column card">
+		{#if $games.length > 0}
+			{#each $games as game, index}
+			<GameCard game={game} index={index} />
+			{/each}
+		{:else}
+			<h2>Loading Games...</h2>
+		{/if}
+		{#if $errors.length > 0}
+			<div class="card">
+				<h3>Errors</h3>
+				<ul>
+					{#each $errors as error}
+						<div class="card error-item">
+							<li>{error}</li>
+						</div>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+		</div>
 
-        <!-- Active Loadout -->
-        <div class="right-column">
-        <div class="card upper-right-card">
-            <h3>{currentLoadout.name}</h3>
-            {#each currentLoadout.weapon_ids as id, i}
-            <WeaponCard
-                weaponId={id}
-                weapon={(currentGame.weapons ?? {})[id] ?? null}
-                active={$current_weapon_index === i}
-                shooting={$shooting && $current_weapon_index === i}
-            />
-            {/each}
-        </div>
-        <div>
-            <StatField
-              label="Horizontal Sensitivity Multiplier"
-              value={$config.mouse_config.horizontal_multiplier}
-              type="number"
-              onChange={(v) => {
-				        changeHorizontalMultiplier(v);
-              }}
-            />
-            <StatField
-              label="Vertical Sensitivity Multiplier"
-              value={$config.mouse_config.vertical_multiplier}
-              type="number"
-              onChange={(v) => {
-				        changeVerticalMultiplier(v);
-              }}
-            />
-        </div>
-        <AccountPanel currentPage="home"/>
-        </div>
-    </div>
+		<!-- Active Loadout -->
+		<div class="right-column">
+		<div class="card upper-right-card">
+		<h3>{currentLoadout.name}</h3>
+		{#each currentLoadout.weapon_ids as id, i}
+		<WeaponCard
+			weaponId={id}
+			weapon={(currentGame.weapons ?? {})[id] ?? null}
+			active={$current_weapon_index === i}
+			shooting={$shooting && $current_weapon_index === i}
+		/>
+		{/each}
+		</div>
+		<div>
+			<StatField
+			label="Horizontal Sensitivity Multiplier"
+			value={$config.mouse_config.horizontal_multiplier}
+			type="number"
+			onChange={(v) => {
+				changeHorizontalMultiplier(v);
+			}}
+			/>
+			<StatField
+			label="Vertical Sensitivity Multiplier"
+			value={$config.mouse_config.vertical_multiplier}
+			type="number"
+			onChange={(v) => {
+				changeVerticalMultiplier(v);
+			}}
+			/>
+		</div>
+		<AccountPanel currentPage="home"/>
+		</div>
+	</div>
 </main>
 
 <style>
@@ -145,6 +160,11 @@ main.container {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.error-item {
+  padding-left: 30px;
+  color: red;
 }
 
 h3 {
