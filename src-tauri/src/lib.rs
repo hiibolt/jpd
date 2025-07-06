@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 
 use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc}};
 
-use crate::{types::{KeyStatus, LoadedGames}, winapi::main_recoil};
+use crate::{types::{KeyStatus, KeyStatusResponse, LoadedGames}, winapi::main_recoil};
 use crate::types::{AppEvent, AppState, Game, GlobalConfig, Weapon};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -205,12 +205,86 @@ async fn load_games_wrapper (
 ) -> Result<(), String> {
     let LoadedGames {
         game_data,
-        ..
     } = load_games((*state.assets_dir_path).clone()).await?;
 
     *state.games.write_arc() = game_data;
 
     Ok(())
+}
+
+#[tauri::command]
+async fn submit_game_key(
+    state: tauri::State<'_, AppState>,
+    game_name: String,
+    key: String,
+) -> Result<Vec<Game>, String> {
+    let assets_dir_path = (*state.assets_dir_path).clone();
+    
+    // Ensure the assets directory exists
+    std::fs::create_dir_all(&assets_dir_path)
+        .map_err(|e| format!("Failed to create assets directory: {}", e))?;
+    
+    // Write the key to the appropriate .key file
+    let key_file_path = assets_dir_path.join(format!("{}.key", game_name));
+    std::fs::write(&key_file_path, &key)
+        .map_err(|e| format!("Failed to write key file {}: {}", key_file_path.display(), e))?;
+    
+    println!("Updated key file for game '{}' at: {}", game_name, key_file_path.display());
+    
+    // Validate the key with the server and get the full response
+    let server_base_url = "http://localhost:4777";
+    let url = format!("{server_base_url}/v1/validate/jpd/{}/{}", game_name, key);
+    
+    let key_response = reqwest::get(url)
+        .await
+        .map_err(|e| format!("Failed to validate key: {}", e))?
+        .json::<KeyStatusResponse>()
+        .await
+        .map_err(|e| format!("Failed to read key response: {}", e))?;
+    
+    // Update the game with the new key and status
+    let mut games = state.games.write_arc();
+    if let Some(game) = games.iter_mut().find(|g| g.name == game_name) {
+        game.key = Some(key);
+        
+        // Extract the key status and update the game accordingly
+        match &key_response {
+            KeyStatusResponse::Valid { key: _, timestamp, config } => {
+                // For valid keys, update with the full game configuration
+                game.key_status = Some(KeyStatus::Valid { 
+                    key: config.key.clone().unwrap_or_default(),
+                    timestamp: *timestamp 
+                });
+                game.categories = config.categories.clone();
+                game.weapons = config.weapons.clone();
+                println!("Updated game '{}' with full configuration from server", game_name);
+            },
+            KeyStatusResponse::Invalid { key } => {
+                game.key_status = Some(KeyStatus::Invalid { key: key.clone() });
+                println!("Key for game '{}' is invalid", game_name);
+            },
+            KeyStatusResponse::Expired { key, timestamp } => {
+                game.key_status = Some(KeyStatus::Expired { 
+                    key: key.clone(), 
+                    timestamp: *timestamp 
+                });
+                println!("Key for game '{}' is expired", game_name);
+            },
+            KeyStatusResponse::Banned { key } => {
+                game.key_status = Some(KeyStatus::Banned { key: key.clone() });
+                println!("Key for game '{}' is banned", game_name);
+            },
+        }
+    }
+    
+    let updated_games = games.clone();
+    
+    // Notify frontend of updated games
+    let _ = state.events_channel_sender.send(AppEvent::UpdatedGames {
+        games: updated_games.clone(),
+    });
+    
+    Ok(updated_games)
 }
 
 fn get_weapon_id (
@@ -245,7 +319,6 @@ async fn load_games (
 ) -> Result<LoadedGames, String> {
     // Load each game's data from `assets/games.json`
     let mut games_ret = Vec::new();
-    let mut key_statuses_ret = Vec::new();
 
     // Load the games
     let server_base_url = "http://localhost:4777";
@@ -271,6 +344,7 @@ async fn load_games (
                     games_ret.push(Game {
                         name: game_id.clone(),
                         key: None,
+                        key_status: None,
                         categories: None,
                         weapons: None,
                     });
@@ -282,6 +356,7 @@ async fn load_games (
             games_ret.push(Game {
                 name: game_id.clone(),
                 key: None,
+                key_status: None,
                 categories: None,
                 weapons: None,
             });
@@ -293,37 +368,64 @@ async fn load_games (
             game_id, key
         );
 
-        let key_status = reqwest::get(url)
+        let key_response = reqwest::get(url)
             .await
             .map_err(|e| format!("Failed to validate key for game `{}`: {}", game_id, e))?
-            .json::<KeyStatus>()
+            .json::<KeyStatusResponse>()
             .await
-            .map_err(|e| format!("Failed to read key status for game `{}`: {}", game_id, e))?;
+            .map_err(|e| format!("Failed to read key response for game `{}`: {}", game_id, e))?;
 
-        if let KeyStatus::Valid { config, .. } = &key_status {
-            println!("Key for game `{}` is valid, loading config", game_id);
-            let mut config = config.clone();
-            config.key = Some(key);
-            games_ret.push(config);
-        } else {
-            println!("Key for game `{}` is invalid or expired, skipping", game_id);
-            games_ret.push(Game {
-                name: game_id.clone(),
-                key: Some(key),
-                categories: None,
-                weapons: None,
-            });
-            continue; // Skip this game if the key is invalid
+        match &key_response {
+            KeyStatusResponse::Valid { timestamp, config, .. } => {
+                println!("Key for game `{}` is valid, loading config", game_id);
+                let mut full_game = config.clone();
+                full_game.key = Some(key);
+                full_game.key_status = Some(KeyStatus::Valid { 
+                    key: full_game.key.clone().unwrap_or_default(),
+                    timestamp: *timestamp 
+                });
+                games_ret.push(full_game);
+            },
+            KeyStatusResponse::Invalid { key } => {
+                println!("Key for game `{}` is invalid", game_id);
+                games_ret.push(Game {
+                    name: game_id.clone(),
+                    key: Some(key.clone()),
+                    key_status: Some(KeyStatus::Invalid { key: key.clone() }),
+                    categories: None,
+                    weapons: None,
+                });
+            },
+            KeyStatusResponse::Expired { key, timestamp } => {
+                println!("Key for game `{}` is expired", game_id);
+                games_ret.push(Game {
+                    name: game_id.clone(),
+                    key: Some(key.clone()),
+                    key_status: Some(KeyStatus::Expired { 
+                        key: key.clone(), 
+                        timestamp: *timestamp 
+                    }),
+                    categories: None,
+                    weapons: None,
+                });
+            },
+            KeyStatusResponse::Banned { key } => {
+                println!("Key for game `{}` is banned", game_id);
+                games_ret.push(Game {
+                    name: game_id.clone(),
+                    key: Some(key.clone()),
+                    key_status: Some(KeyStatus::Banned { key: key.clone() }),
+                    categories: None,
+                    weapons: None,
+                });
+            },
         }
-
-        key_statuses_ret.push(key_status);
     }
 
     println!("Loaded {} games", games_ret.len());
 
     Ok(LoadedGames {
         game_data: games_ret,
-        key_statuses: key_statuses_ret,
     })
 }
 fn load_config (
@@ -447,7 +549,8 @@ pub fn run() {
 
             load_games_wrapper,
             set_weapon_config,
-            start_channel_reads
+            start_channel_reads,
+            submit_game_key
         ])
         .setup(|app| {
             let state = tauri::async_runtime::block_on(setup(app));

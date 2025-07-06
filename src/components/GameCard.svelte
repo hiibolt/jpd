@@ -28,8 +28,6 @@
                         index={index}
                     />
                 {/each}
-            {:else}
-                <span class="no-categories"><b>No Categories Found!</b></span>
             {/if}
         </div>
     {/if}
@@ -67,9 +65,5 @@
     .game-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    }
-    .no-categories {
-        color: var(--fg-secondary);
-        margin-top: 0.5rem;
     }
 </style>
