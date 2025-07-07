@@ -89,3 +89,4 @@ export const current_loadout_index = writable(0);
 export const current_weapon_index = writable(0);
 export const shooting = writable(false);
 export const errors = writable<string[]>([]);
+export const version = writable<string>('?.?.?');
