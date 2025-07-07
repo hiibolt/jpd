@@ -4,6 +4,7 @@ mod types;
 
 use parking_lot::{Mutex, RwLock};
 use tauri::{ipc::Channel, App, Builder, Manager};
+use tauri_plugin_updater::UpdaterExt;
 use window_vibrancy::apply_acrylic;
 use anyhow::{anyhow, Result};
 
@@ -479,9 +480,37 @@ fn save_data(
     Ok(())
 }
 
+async fn update(app: tauri::AppHandle) -> tauri_plugin_updater::Result<()> {
+    if let Some(update) = app.updater()?.check().await? {
+        let mut downloaded = 0;
+
+        // alternatively we could also call update.download() and update.install() separately
+        update.download_and_install(
+                |chunk_length, content_length| {
+                    downloaded += chunk_length;
+                    println!("downloaded {downloaded} from {content_length:?}");
+                },
+                || {
+                println!("download finished");
+                },
+            )
+            .await?;
+
+        println!("update installed");
+        app.restart();
+    }
+
+  Ok(())
+}
 async fn setup(
     app: &mut App
 ) -> AppState {
+    // First, check for updates
+    let app_handle_cloned = app.handle().clone();
+    tauri::async_runtime::spawn(async move {
+        update(app_handle_cloned).await.expect("Failed to run updater!");
+    });
+
     let resource_assets_dir = app.path().resource_dir()
         .expect("Failed to get resource directory")
         .join("assets");
@@ -534,6 +563,7 @@ async fn setup(
 }
 pub fn run() {
     Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![

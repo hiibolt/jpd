@@ -1,8 +1,8 @@
 [package]
 name = "clc-jpd"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "CLC's Just Pull Down - An Anti-Recoil Solution"
+authors = ["hiibolt"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -22,12 +22,15 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-winapi = { version = "0.3.9", features = ["windef", "winuser", "libloaderapi", "hidusage", "impl-default"] }
-tokio = { version = "1.45.1", features = ["full"] }
-window-vibrancy = "0.6.0"
-anyhow = "1.0.98"
-parking_lot = { version = "0.12.4", features = ["arc_lock"] }
-tauri-plugin-fs = "2.4.0"
-reqwest = { version = "0.12.22", features = ["json"] }
-futures = "0.3.31"
+winapi = { version = "0.3", features = ["windef", "winuser", "libloaderapi", "hidusage", "impl-default"] }
+tokio = { version = "1", features = ["full"] }
+window-vibrancy = "0.6"
+anyhow = "1"
+parking_lot = { version = "0.12", features = ["arc_lock"] }
+tauri-plugin-fs = "2"
+reqwest = { version = "0.12", features = ["json"] }
+futures = "0.3"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"
 
