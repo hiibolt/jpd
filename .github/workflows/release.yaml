@@ -47,4 +47,5 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           owner: 'hiibolt'
           repo: 'clc-jpd-releases'
+          releaseCommitish: 'main'
           args: ${{ matrix.args }}
