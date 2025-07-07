@@ -9,7 +9,8 @@ import {
     current_game_index,
     config,
     type Game,
-    errors
+    errors,
+    version
 } from '../stores/state';
 
 type UpdatedGamesEvent = {
@@ -33,6 +34,10 @@ let channel: Channel<Event>;
 
 export async function initialize() {
     try {
+        console.log('Initializing application...');
+        version.set(await invoke('get_version') as string);
+        console.log('Version:', version);
+
         await invoke('load_games_wrapper');
         console.log('Games loaded successfully');
 

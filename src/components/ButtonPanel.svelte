@@ -1,4 +1,6 @@
 <script>
+    import { version } from "../stores/state";
+
     export let currentPage = 'home';
 </script>
 
@@ -13,6 +15,7 @@
         {#if currentPage !== 'settings'}
             <a href="/settings"><button data-tooltip="Settings">⚙️</button></a>
         {/if}
+        <button data-tooltip="Version"><b>{$version}</b></button>
     </div>
 </div>
 

@@ -23,6 +23,15 @@ fn get_config(state: tauri::State<'_, AppState>) -> GlobalConfig {
     state.global_config.read_arc().clone()
 }
 #[tauri::command]
+fn get_version(
+    app: tauri::AppHandle
+) -> String {
+    app.config().version
+        .as_ref()
+        .map(|st| st.clone())
+        .unwrap_or(String::from("?.?.?"))
+}
+#[tauri::command]
 async fn start_channel_reads (
     state: tauri::State<'_, AppState>,
     channel: Channel<AppEvent>,
@@ -569,6 +578,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_games,
             get_config,
+            get_version,
 
             change_game,
             change_category,
