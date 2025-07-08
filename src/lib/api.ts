@@ -129,3 +129,15 @@ export async function submitGameKey(gameName: string, key: string): Promise<Game
         return null;
     }
 }
+
+export function clearErrors() {
+    errors.set([]);
+}
+
+export async function restartApplication() {
+    try {
+        await invoke('restart_app');
+    } catch (error) {
+        handleError('Restart application failed', error);
+    }
+}

@@ -47,8 +47,14 @@ export type SingleFireConfig = {
     release_delay_ms: number;
     dx: number;
     dy: number;
-    mag_size: number;
     autofire: boolean;
+};
+export type SingleShotConfig = {
+    name: string;
+    description?: string;
+    recoil_completion_ms: number;
+    dx: number;
+    dy: number;
 };
 export type FullAutoStandardConfig = {
     name: string;
@@ -58,12 +64,15 @@ export type FullAutoStandardConfig = {
     exponential_factor: number;
     dx: number;
     dy: number;
-    mag_size: number;
+};
+export type NoneConfig = {
+    name: string;
+    description?: string;
 };
 
 export type Weapon = {
-    type: 'SingleFire' | 'FullAutoStandard';
-    config: SingleFireConfig | FullAutoStandardConfig;
+    type: 'SingleFire' | 'SingleShot' | 'FullAutoStandard' | 'None';
+    config: SingleFireConfig | SingleShotConfig | FullAutoStandardConfig | NoneConfig;
 };
 
 export type Weapons = Record<string, Weapon>;

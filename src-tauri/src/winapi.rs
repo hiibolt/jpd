@@ -1,13 +1,12 @@
 extern crate winapi;
 
-use crate::{get_weapon_id, load_config, load_games, save_data};
+use crate::{get_weapon_id, save_data};
 use crate::recoil::handle_hold_lmb;
-use crate::types::{AppEvent, AppState, LoadedGames, Weapon};
+use crate::types::{AppEvent, AppState, Weapon};
 
 use std::time::Duration;
 use std::{mem, ptr, thread};
 use std::sync::atomic::Ordering;
-use tokio::runtime::Handle;
 use winapi::shared::hidusage::*;
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
@@ -56,7 +55,7 @@ pub fn release_key (
         SendInput(1, &mut input, mem::size_of::<INPUT>() as i32);
     }
 }
-pub fn press_and_release_key (
+pub fn _press_and_release_key (
     key: char,
     release_delay: Duration,
 ) {
@@ -248,7 +247,12 @@ unsafe extern "system" fn wnd_proc(
 
                         let (dx_mut_ref, dy_mut_ref) = match weapon {
                             Weapon::SingleFire(config) => (&mut config.dx, &mut config.dy),
-                            Weapon::FullAutoStandard(config) => (&mut config.dx, &mut config.dy)
+                            Weapon::FullAutoStandard(config) => (&mut config.dx, &mut config.dy),
+                            Weapon::SingleShot(config) => (&mut config.dx, &mut config.dy),
+                            Weapon::None(_) => {
+                                eprintln!("No recoil control for None type weapons");
+                                return 0;
+                            }
                         };
                         *dx_mut_ref += if keyboard.VKey as i32 == VK_HOME { 0.1 } else if keyboard.VKey as i32 == VK_END { -0.1 } else { 0.0 };
                         *dy_mut_ref += if keyboard.VKey as i32 == VK_PRIOR { 0.1 } else if keyboard.VKey as i32 == VK_NEXT { -0.1 } else { 0.0 };
@@ -269,45 +273,6 @@ unsafe extern "system" fn wnd_proc(
                         if let Err(e) = save_data(state) {
                             eprintln!("Failed to save data: {}", e);
                         }
-                    } else if keyboard.VKey as i32 == VK_INSERT {
-                        println!("Reloading config...");
-
-                        // Load the config from the file
-                        match load_config(&state.assets_dir_path) {
-                            Ok(config) => {
-                                println!("Reloading global config...");
-                                *state.global_config.write_arc() = config;
-                                println!("Successfully reloaded config");
-                            },
-                            Err(e) => {
-                                eprintln!("Failed to load data: {}", e);
-                            }
-                        }
-
-                        // Load the games
-                        let handle = Handle::current();
-                        let handle_guard = handle.enter();
-                        let game_data = match futures::executor::block_on(load_games((*state.assets_dir_path).clone())) {
-                            Ok(LoadedGames { game_data, .. }) => {
-                                Some(game_data)
-                            },
-                            Err(e) => {
-                                eprintln!("Failed to load games: {}", e);
-                                None
-                            }
-                        };
-                        drop(handle_guard);
-
-                        // Emit an event that the config has been updated
-                        println!("Emitting updated games event...");
-                        if let Some(game_data) = game_data {
-                            if let Err(e) = state.events_channel_sender.send(AppEvent::UpdatedGames {
-                                games: game_data,
-                            }) {
-                                eprintln!("Failed to send event: {}", e);
-                            }
-                        }
-                        println!("Config reloaded successfully");
                     }
                 }
             }

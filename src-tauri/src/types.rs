@@ -103,6 +103,14 @@ pub struct AppState {
     pub current_weapon_index:   Arc<AtomicUsize>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SingleShotConfig {
+    pub name: String,
+    pub description: Option<String>,
+    pub recoil_completion_ms: u32,
+    pub dx: f32,
+    pub dy: f32,
+}
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SingleFireConfig {
     pub name: String,
     pub description: Option<String>,
@@ -111,7 +119,6 @@ pub struct SingleFireConfig {
     pub release_delay_ms: u32,
     pub dx: f32,
     pub dy: f32,
-    pub mag_size: u32,
     pub autofire: bool,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -123,7 +130,11 @@ pub struct FullAutoStandardConfig {
     pub exponential_factor: f32,
     pub dx: f32,
     pub dy: f32,
-    pub mag_size: u32,
+}
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct NoneConfig {
+    pub name: String,
+    pub description: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -151,5 +162,7 @@ pub struct Loadout {
 #[serde(tag = "type", content = "config")]
 pub enum Weapon {
     SingleFire(SingleFireConfig),
+    SingleShot(SingleShotConfig),
     FullAutoStandard(FullAutoStandardConfig),
+    None(NoneConfig),
 }

@@ -22,11 +22,15 @@
         <StatField label="Release Delay (ms)" value={config.release_delay_ms} type="number" onChange={(v) => setWeaponConfig(weaponId, 'release_delay_ms', v)} />
         <StatField label="DX" value={config.dx} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dx', v)} />
         <StatField label="DY" value={config.dy} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dy', v)} />
-        <StatField label="Mag Size" value={config.mag_size} type="number" onChange={(v) => setWeaponConfig(weaponId, 'mag_size', v)} />
 
         <button class="autofire-toggle" on:click={() =>  setWeaponConfig(weaponId, 'autofire', !config.autofire)}>
             <b>{config.autofire ? 'Disable Autofire' : 'Enable Autofire'}</b>
         </button>
+
+    {:else if type === 'SingleShot'}
+        <StatField label="Recoil Completion (ms)" value={config.recoil_completion_ms} type="number" onChange={(v) => setWeaponConfig(weaponId, 'recoil_completion_ms', v)} />
+        <StatField label="DX" value={config.dx} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dx', v)} />
+        <StatField label="DY" value={config.dy} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dy', v)} />
 
     {:else if type === 'FullAutoStandard'}
         <StatField label="RPM" value={config.rpm} type="number" onChange={(v) => setWeaponConfig(weaponId, 'rpm', v)} />
@@ -34,7 +38,9 @@
         <StatField label="Exponential Factor" value={config.exponential_factor} type="number" onChange={(v) => setWeaponConfig(weaponId, 'exponential_factor', v)} />
         <StatField label="DX" value={config.dx} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dx', v)} />
         <StatField label="DY" value={config.dy} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dy', v)} />
-        <StatField label="Mag Size" value={config.mag_size} type="number" onChange={(v) => setWeaponConfig(weaponId, 'mag_size', v)} />
+    
+    {:else if type === 'None'}
+        <p class="no-recoil-info">This weapon performs no recoil control.</p>
     {/if}
 </div>
 
@@ -53,5 +59,10 @@
         margin-top: 0.5rem;
         padding-left: 1rem;
         font-size: 0.9em;
+    }
+    .no-recoil-info {
+        color: var(--text-muted, #888);
+        font-style: italic;
+        margin: 0.5rem 0;
     }
 </style>

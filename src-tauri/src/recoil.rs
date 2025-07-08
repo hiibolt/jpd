@@ -5,7 +5,7 @@ use winapi::um::winuser::*;
 
 use crate::get_weapon_id;
 use crate::types::{AppEvent, AppState, GlobalConfig, Weapon};
-use crate::winapi::press_and_release_key;
+use crate::winapi::{press_key, release_key};
 
 pub fn move_down (
     config: &GlobalConfig,
@@ -118,13 +118,12 @@ pub fn handle_hold_lmb (
         }
 
         println!("Controlling weapon: {}", weapon_id);
-        let mut rounds_fired = 1;
         match weapon {
             Weapon::FullAutoStandard(config) => {
-                let seconds_in_minute = 60u64;
-                let nanoseconds_in_second = 1_000_000_000u64;
-                let nanoseconds_per_move = (nanoseconds_in_second * seconds_in_minute) / config.rpm;
-                let interval = Duration::from_nanos(nanoseconds_per_move);
+                let seconds_in_minute = 60u128;
+                let nanoseconds_in_second = 1_000_000_000u128;
+                let nanoseconds_per_move = (nanoseconds_in_second * seconds_in_minute) / (config.rpm as u128);
+                let interval = Duration::from_nanos(nanoseconds_per_move as u64);
 
                 // Handle the first shot with scaled movement
                 let first_shot_scale = config.first_shot_scale;
@@ -147,20 +146,16 @@ pub fn handle_hold_lmb (
                         println!("Weapon changed while firing, exiting hold loop.");
                         continue 'outer;
                     }
-
-                    rounds_fired += 1;
-                    if rounds_fired > config.mag_size {
-                        println!("Reached mag size limit, exiting hold loop.");
-                        break 'outer;
-                    }
                 }
             }
             Weapon::SingleFire(config) => {
                 let trigger_delay = Duration::from_millis(config.trigger_delay_ms as u64);
-                let recoil_completion = Duration::from_millis(config.recoil_completion_ms as u64);
-                let release_delay = Duration::from_millis(config.release_delay_ms as u64);
+                let recoil_completion: Duration = Duration::from_millis(config.recoil_completion_ms as u64);
+                let release_delay: Duration = Duration::from_millis(config.release_delay_ms as u64);
 
                 while state.left_hold_active.load(Ordering::SeqCst) && !(global_config.keybinds.require_right_hold && !state.right_hold_active.load(Ordering::SeqCst)) {
+                    press_key(global_config.keybinds.alternative_fire);
+                    
                     // Move down for the next shot
                     move_down(
                         global_config, 
@@ -178,10 +173,9 @@ pub fn handle_hold_lmb (
                         break 'outer;
                     }
 
-                    press_and_release_key(
-                        global_config.keybinds.alternative_fire,
-                        release_delay
-                    );
+                    std::thread::sleep(release_delay);
+
+                    release_key(global_config.keybinds.alternative_fire);
 
                     std::thread::sleep(trigger_delay);
 
@@ -193,13 +187,27 @@ pub fn handle_hold_lmb (
                         continue 'outer;
                     }
                     println!("[SF] :3 -");
-
-                    rounds_fired += 1;
-                    if rounds_fired > config.mag_size {
-                        println!("Reached mag size limit, exiting hold loop.");
-                        break 'outer;
-                    }
                 }
+            },
+            Weapon::SingleShot(config) => {
+                let recoil_completion: Duration = Duration::from_millis(config.recoil_completion_ms as u64);
+
+                // Move down for the shot
+                move_down(
+                    global_config, 
+                    config.dx,
+                    config.dy,
+                    10,
+                    recoil_completion,
+                    true
+                );
+
+                break 'outer;
+            },
+            Weapon::None(_config) => {
+                // No recoil control for None type weapons
+                println!("No recoil control for weapon: {}", weapon_id);
+                break 'outer;
             }
         }
         if !state.left_hold_active.load(Ordering::SeqCst) {

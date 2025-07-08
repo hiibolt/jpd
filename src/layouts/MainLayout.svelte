@@ -17,7 +17,7 @@
 
     } from '../stores/state';
     import StatField from '../components/StatField.svelte';
-	import { changeHorizontalMultiplier, changeVerticalMultiplier } from '../lib/api';
+	import { changeHorizontalMultiplier, changeVerticalMultiplier, clearErrors, restartApplication } from '../lib/api';
 
 
     $: currentGame = $games[$current_game_index] ?? { name: 'Game Not Found', categories: [], weapons: [] };
@@ -42,7 +42,19 @@
 		{/if}
 		{#if $errors.length > 0}
 			<div class="card">
-				<h3>Errors</h3>
+				<div class="errors-header">
+					<h3>Errors</h3>
+					<div class="error-buttons">
+						<button class="error-btn clear-btn" on:click={() => {
+							clearErrors();
+							console.log('Errors cleared');
+						}}>Clear</button>
+						<button class="error-btn restart-btn" on:click={() => {
+							console.log('Restarting application...');
+							restartApplication();
+						}}>Restart</button>
+					</div>
+				</div>
 				<ul>
 					{#each $errors as error}
 						<div class="card error-item">
@@ -165,6 +177,45 @@ main.container {
 .error-item {
   padding-left: 30px;
   color: red;
+}
+
+.errors-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.error-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.error-btn {
+  padding: 0.375rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.clear-btn {
+  background-color: #6c757d;
+  color: white;
+}
+
+.clear-btn:hover {
+  background-color: #5a6268;
+}
+
+.restart-btn {
+  background-color: #dc3545;
+  color: white;
+}
+
+.restart-btn:hover {
+  background-color: #c82333;
 }
 
 h3 {
