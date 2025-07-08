@@ -13,6 +13,8 @@ use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc
 use crate::{types::{KeyStatus, KeyStatusResponse, LoadedGames}, winapi::main_recoil};
 use crate::types::{AppEvent, AppState, Game, GlobalConfig, Weapon};
 
+const SERVER_BASE_URL: &'static str = "http://5.249.162.64:4777";
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn get_games(state: tauri::State<'_, AppState>) -> Vec<Game> {
@@ -259,8 +261,7 @@ async fn submit_game_key(
     println!("Updated key file for game '{}' at: {}", game_name, key_file_path.display());
     
     // Validate the key with the server and get the full response
-    let server_base_url = "http://localhost:4777";
-    let url = format!("{server_base_url}/v1/validate/jpd/{}/{}", game_name, key);
+    let url = format!("{SERVER_BASE_URL}/v1/validate/jpd/{}/{}", game_name, key);
     
     let key_response = reqwest::get(url)
         .await
@@ -348,8 +349,7 @@ async fn load_games (
     let mut games_ret = Vec::new();
 
     // Load the games
-    let server_base_url = "http://localhost:4777";
-    let game_list = reqwest::get(format!("{server_base_url}/v1/products/jpd"))
+    let game_list = reqwest::get(format!("{SERVER_BASE_URL}/v1/products/jpd"))
         .await
         .map_err(|e| format!("Failed to fetch games list: {}", e))?
         .json::<Vec<String>>()
@@ -391,7 +391,7 @@ async fn load_games (
         };
 
         let url = format!(
-            "{server_base_url}/v1/validate/jpd/{}/{}",
+            "{SERVER_BASE_URL}/v1/validate/jpd/{}/{}",
             game_id, key
         );
 
