@@ -32,6 +32,12 @@ fn get_version(
         .unwrap_or(String::from("?.?.?"))
 }
 #[tauri::command]
+async fn restart_app(
+    app: tauri::AppHandle
+) -> Result<(), String> {
+    app.restart();
+}
+#[tauri::command]
 async fn start_channel_reads (
     state: tauri::State<'_, AppState>,
     channel: Channel<AppEvent>,
@@ -180,7 +186,6 @@ fn set_weapon_config(
                 "release_delay_ms" => weapon_config.release_delay_ms = new_value.as_u64().ok_or("Invalid value for release_delay_ms")? as u32,
                 "dx" => weapon_config.dx = new_value.as_f64().ok_or("Invalid value for dx")? as f32,
                 "dy" => weapon_config.dy = new_value.as_f64().ok_or("Invalid value for dy")? as f32,
-                "mag_size" => weapon_config.mag_size = new_value.as_u64().ok_or("Invalid value for mag_size")? as u32,
                 "autofire" => weapon_config.autofire = new_value.as_bool().ok_or("Invalid value for autofire")?,
                 _ => return Err(format!("Unknown field: {}", field)),
             }
@@ -194,9 +199,21 @@ fn set_weapon_config(
                 "exponential_factor" => weapon_config.exponential_factor = new_value.as_f64().ok_or("Invalid value for exponential_factor")? as f32,
                 "dx" => weapon_config.dx = new_value.as_f64().ok_or("Invalid value for dx")? as f32,
                 "dy" => weapon_config.dy = new_value.as_f64().ok_or("Invalid value for dy")? as f32,
-                "mag_size" => weapon_config.mag_size = new_value.as_u64().ok_or("Invalid value for mag_size")? as u32,
                 _ => return Err(format!("Unknown field: {}", field)),
             }
+        },
+        Weapon::SingleShot(weapon_config) => {
+            match field.as_str() {
+                "name" => weapon_config.name = new_value.as_str().ok_or("Invalid value for name")?.to_string(),
+                "description" => weapon_config.description = new_value.as_str().map(|s| s.to_string()),
+                "recoil_completion_ms" => weapon_config.recoil_completion_ms = new_value.as_u64().ok_or("Invalid value for recoil_completion_ms")? as u32,
+                "dx" => weapon_config.dx = new_value.as_f64().ok_or("Invalid value for dx")? as f32,
+                "dy" => weapon_config.dy = new_value.as_f64().ok_or("Invalid value for dy")? as f32,
+                _ => return Err(format!("Unknown field: {}", field)),
+            }
+        },
+        Weapon::None(_) => {
+            return Err(format!("Cannot set field `{}` for weapon `{}` as it is of type `None`", field, weapon_id));
         },
     }
 
@@ -579,6 +596,7 @@ pub fn run() {
             get_games,
             get_config,
             get_version,
+            restart_app,
 
             change_game,
             change_category,
