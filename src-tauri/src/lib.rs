@@ -234,7 +234,7 @@ async fn load_games_wrapper (
 ) -> Result<(), String> {
     let LoadedGames {
         game_data,
-    } = load_games((*state.assets_dir_path).clone()).await?;
+    } = load_games((*state.config_dir_path).clone()).await?;
 
     *state.games.write_arc() = game_data;
 
@@ -247,14 +247,10 @@ async fn submit_game_key(
     game_name: String,
     key: String,
 ) -> Result<Vec<Game>, String> {
-    let assets_dir_path = (*state.assets_dir_path).clone();
-    
-    // Ensure the assets directory exists
-    std::fs::create_dir_all(&assets_dir_path)
-        .map_err(|e| format!("Failed to create assets directory: {}", e))?;
+    let config_dir = (*state.config_dir_path).clone();
     
     // Write the key to the appropriate .key file
-    let key_file_path = assets_dir_path.join(format!("{}.key", game_name));
+    let key_file_path = config_dir.join(format!("{}.key", game_name));
     std::fs::write(&key_file_path, &key)
         .map_err(|e| format!("Failed to write key file {}: {}", key_file_path.display(), e))?;
     
@@ -343,9 +339,9 @@ fn get_weapon_id (
     Ok(weapon_id.clone())
 }
 async fn load_games (
-    assets_dir_path: PathBuf
+    config_dir: PathBuf
 ) -> Result<LoadedGames, String> {
-    // Load each game's data from `assets/games.json`
+    // Load each game's data from `{config_dir}/games.json`
     let mut games_ret = Vec::new();
 
     // Load the games
@@ -358,8 +354,8 @@ async fn load_games (
     println!("Available games configs: {:?}", game_list);
 
     for game_id in &game_list {
-        // Attempt to load the contents of `assets/{game}.key`
-        let game_key_path = assets_dir_path.join(format!("{}.key", game_id));
+        // Attempt to load the contents of `{config_dir}/{game}.key`
+        let game_key_path = config_dir.join(format!("{}.key", game_id));
         let key = if game_key_path.exists() {
             match std::fs::read_to_string(&game_key_path) {
                 Ok(key) => {
@@ -456,11 +452,11 @@ async fn load_games (
     })
 }
 fn load_config (
-    assets_dir_path: &PathBuf
+    config_dir: &PathBuf
 ) -> Result<GlobalConfig, String> {
-    let config_path = assets_dir_path.join("config.json");
+    let config_path = config_dir.join("config.json");
 
-    // If the `assets/config.json` file does not exist, create it with default values
+    // If the `{config_dir}/config.json` file does not exist, create it with default values
     if !config_path.exists() {
         let default_config = GlobalConfig::default();
         std::fs::write(
@@ -469,7 +465,7 @@ fn load_config (
         ).map_err(|e| format!("Failed to write default config file: {}", e))?;
     }
 
-    // Load global config from `assets/config.json`
+    // Load global config from `{config_dir}/config.json`
     println!("Loading global config from: {}", config_path.display());
     let global_config: GlobalConfig = serde_json::from_str(
         &std::fs::read_to_string(config_path).map_err(|e| format!("Failed to read config file: {}", e))?
@@ -480,17 +476,17 @@ fn load_config (
 fn save_data(
     state: &AppState
 ) -> Result<(), String> {
-    let assets_dir_path = &state.assets_dir_path;
+    let config_dir = &state.config_dir_path;
 
-    // Save config to `assets/config.json`
+    // Save config to `{config_dir}/config.json`
     let global_config: GlobalConfig = state.global_config.read_arc().clone();
     std::fs::write(
-        assets_dir_path.join("config.json"),
+        config_dir.join("config.json"),
         serde_json::to_string_pretty(&global_config).map_err(|e| e.to_string())?
     ).map_err(|e| format!("Failed to write config file: {}", e))?;
 
-    // Save each game's data to `assets/<game_name>/data.json`
-    let games_dir_path = assets_dir_path.join("games");
+    // Save each game's data to `{config_dir}/<game_name>/data.json`
+    let games_dir_path = config_dir.join("games");
     for game in state.games.read_arc().iter() {
         let game_path = games_dir_path.join(&game.name);
         let game_contents = serde_json::to_string_pretty(game)
@@ -537,22 +533,21 @@ async fn setup(
         update(app_handle_cloned).await.expect("Failed to run updater!");
     });
 
-    let resource_assets_dir = app.path().resource_dir()
-        .expect("Failed to get resource directory")
-        .join("assets");
-    let assets_dir_path = Arc::new(if resource_assets_dir.exists() {
-        println!("Using resource directory: {}", resource_assets_dir.display());
-        resource_assets_dir
-    } else {
-        println!("Using default assets directory: ./assets");
-        PathBuf::from("assets")
-    });
+    // Get the config directory path
+    let config_dir_path = Arc::new(app.path().app_config_dir()
+        .expect("Failed to get resource directory"));
 
-    let config = match load_config(&assets_dir_path) {
+    // If the config directory path does not exist, create it
+    if !config_dir_path.exists() {
+        std::fs::create_dir_all(&*config_dir_path)
+            .expect("Failed to create config directory");
+    }
+
+    let config = match load_config(&config_dir_path) {
         Ok(data) => data,
         Err(e) => {
-            // If loading data fails, create an `assets/logs` directory and log the error
-            let log_dir = assets_dir_path.join("logs");
+            // If loading data fails, create an `{config_dir}/logs` directory and log the error
+            let log_dir = config_dir_path.join("logs");
             std::fs::create_dir_all(&log_dir).expect("Failed to create logs directory");
             
             let log_file_path = log_dir.join("error.log");
@@ -567,7 +562,7 @@ async fn setup(
     let state = AppState {
         games:           Arc::new(RwLock::new(vec!())),
         global_config:   Arc::new(RwLock::new(config)),
-        assets_dir_path,
+        config_dir_path,
 
         events_channel_sender:   Arc::new(event_tx),
         events_channel_reciever: Arc::new(Mutex::new(event_rx)),
