@@ -53,7 +53,7 @@ impl Default for KeybindConfig {
             require_right_hold: true,
             primary_weapon: '1',
             secondary_weapon: '2',
-            alternative_fire: '3',
+            alternative_fire: 'm',
         }
     }
 }
@@ -90,7 +90,7 @@ impl Default for GlobalConfig {
 pub struct AppState {
     pub games:           Arc<RwLock<Vec<Game>>>,
     pub global_config:   Arc<RwLock<GlobalConfig>>,
-    pub assets_dir_path: Arc<PathBuf>,
+    pub config_dir_path: Arc<PathBuf>,
     
     pub events_channel_sender:   Arc<Sender<AppEvent>>,
     pub events_channel_reciever: Arc<Mutex<Receiver<AppEvent>>>,
