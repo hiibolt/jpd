@@ -32,6 +32,10 @@
         <StatField label="DX" value={config.dx} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dx', v)} />
         <StatField label="DY" value={config.dy} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dy', v)} />
 
+        <button class="autofire-toggle" on:click={() =>  setWeaponConfig(weaponId, 'enabled', !config.enabled)}>
+            <b>{config.enabled ? 'Disable Recoil Control' : 'Enable Recoil Control'}</b>
+        </button>
+
     {:else if type === 'FullAutoStandard'}
         <StatField label="RPM" value={config.rpm} type="number" onChange={(v) => setWeaponConfig(weaponId, 'rpm', v)} />
         <StatField label="First Shot Scale" value={config.first_shot_scale} type="number" onChange={(v) => setWeaponConfig(weaponId, 'first_shot_scale', v)} />

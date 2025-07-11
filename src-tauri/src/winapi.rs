@@ -12,6 +12,54 @@ use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::winuser::*;
+use winapi::um::fileapi::GetVolumeInformationW;
+
+pub fn get_hardware_identifier() -> String {
+    unsafe {
+        let root_path: Vec<u16> = "C:\\"
+            .chars()
+            .map(|c| c as u16)
+            .chain(std::iter::once(0))
+            .collect();
+        let mut volume_name_buffer = vec![0u16; 256];
+        let mut volume_serial_number: u32 = 0;
+        let mut maximum_component_length: u32 = 0;
+        let mut file_system_flags: u32 = 0;
+        let mut file_system_name_buffer = vec![0u16; 256];
+
+        let result = GetVolumeInformationW(
+            root_path.as_ptr(),
+            volume_name_buffer.as_mut_ptr(),
+            volume_name_buffer.len() as u32,
+            &mut volume_serial_number,
+            &mut maximum_component_length,
+            &mut file_system_flags,
+            file_system_name_buffer.as_mut_ptr(),
+            file_system_name_buffer.len() as u32,
+        );
+
+        if result != 0 {
+            // Convert UTF-16 buffers to strings
+            let volume_name = String::from_utf16_lossy(&volume_name_buffer)
+                .trim_end_matches('\0').to_string();
+            let file_system_name = String::from_utf16_lossy(&file_system_name_buffer)
+                .trim_end_matches('\0').to_string();
+
+            // Create a hardware identifier string from all the information
+            format!(
+                "{}:{}:{}:{}:{}",
+                volume_serial_number,
+                volume_name,
+                maximum_component_length,
+                file_system_flags,
+                file_system_name
+            )
+        } else {
+            // Fallback identifier if volume information fails
+            "unknown_hardware".to_string()
+        }
+    }
+}
 
 pub fn press_key (
     key: char

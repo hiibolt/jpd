@@ -17,7 +17,7 @@
 
     } from '../stores/state';
     import StatField from '../components/StatField.svelte';
-	import { changeHorizontalMultiplier, changeVerticalMultiplier, clearErrors, restartApplication } from '../lib/api';
+	import { changeHorizontalMultiplier, changeVerticalMultiplier, changeAcogHorizontalMultiplier, changeAcogVerticalMultiplier, clearErrors, restartApplication } from '../lib/api';
 
 
     $: currentGame = $games[$current_game_index] ?? { name: 'Game Not Found', categories: [], weapons: [] };
@@ -81,7 +81,15 @@
 		</div>
 		<div>
 			<StatField
-			label="Horizontal Sensitivity Multiplier"
+			label="1x Vertical Sensitivity Multiplier"
+			value={$config.mouse_config.vertical_multiplier}
+			type="number"
+			onChange={(v) => {
+				changeVerticalMultiplier(v);
+			}}
+			/>
+			<StatField
+			label="1x Horizontal Sensitivity Multiplier"
 			value={$config.mouse_config.horizontal_multiplier}
 			type="number"
 			onChange={(v) => {
@@ -89,11 +97,19 @@
 			}}
 			/>
 			<StatField
-			label="Vertical Sensitivity Multiplier"
-			value={$config.mouse_config.vertical_multiplier}
+			label="2.5x Vertical Sensitivity Multiplier"
+			value={$config.mouse_config.acog_vertical_multiplier}
 			type="number"
 			onChange={(v) => {
-				changeVerticalMultiplier(v);
+				changeAcogVerticalMultiplier(v);
+			}}
+			/>
+			<StatField
+			label="2.5x Horizontal Sensitivity Multiplier"
+			value={$config.mouse_config.acog_horizontal_multiplier}
+			type="number"
+			onChange={(v) => {
+				changeAcogHorizontalMultiplier(v);
 			}}
 			/>
 		</div>

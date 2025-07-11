@@ -9,15 +9,31 @@ use crate::winapi::{press_key, release_key};
 
 pub fn move_down (
     config: &GlobalConfig,
-
+    weapon: &Weapon,
     dx_total: f32,
     dy_total: f32,
     splits: u32,
     total_interval: Duration,
     wait_first: bool,
 ) {
-    let dx_total = dx_total * config.mouse_config.horizontal_multiplier;
-    let dy_total = dy_total * config.mouse_config.vertical_multiplier;
+    // Check if weapon has "ACOG" in description to determine which multiplier to use
+    let has_acog = match weapon {
+        Weapon::SingleFire(w_config) => w_config.description.as_ref().map_or(false, |desc| desc.to_uppercase().contains("ACOG")),
+        Weapon::SingleShot(w_config) => w_config.description.as_ref().map_or(false, |desc| desc.to_uppercase().contains("ACOG")),
+        Weapon::FullAutoStandard(w_config) => w_config.description.as_ref().map_or(false, |desc| desc.to_uppercase().contains("ACOG")),
+        Weapon::None(w_config) => w_config.description.as_ref().map_or(false, |desc| desc.to_uppercase().contains("ACOG")),
+    };
+
+    println!("Has ACOG: {}", has_acog);
+
+    let (h_multiplier, v_multiplier) = if has_acog {
+        (config.mouse_config.acog_horizontal_multiplier, config.mouse_config.acog_vertical_multiplier)
+    } else {
+        (config.mouse_config.horizontal_multiplier, config.mouse_config.vertical_multiplier)
+    };
+
+    let dx_total = dx_total * h_multiplier;
+    let dy_total = dy_total * v_multiplier;
     let mut dx_accum = 0.0;
     let mut dy_accum = 0.0;
 
@@ -118,7 +134,7 @@ pub fn handle_hold_lmb (
         }
 
         println!("Controlling weapon: {}", weapon_id);
-        match weapon {
+        match &weapon {
             Weapon::FullAutoStandard(config) => {
                 let seconds_in_minute = 60u128;
                 let nanoseconds_in_second = 1_000_000_000u128;
@@ -129,12 +145,12 @@ pub fn handle_hold_lmb (
                 let first_shot_scale = config.first_shot_scale;
                 let first_dx = config.dx * first_shot_scale;
                 let first_dy = config.dy * first_shot_scale;
-                move_down(global_config, first_dx, first_dy, 3, interval, true);
+                move_down(global_config, &weapon, first_dx, first_dy, 3, interval, true);
 
                 let mut iteration = 0;
                 while state.left_hold_active.load(Ordering::SeqCst) && !(global_config.keybinds.require_right_hold && !state.right_hold_active.load(Ordering::SeqCst)) {
                     let dy_total = config.dy * config.exponential_factor.powf(iteration as f32);
-                    move_down(global_config, config.dx, dy_total, 10, interval, false);
+                    move_down(global_config, &weapon, config.dx, dy_total, 10, interval, false);
 
                     println!(":3 -");
                     iteration += 1;
@@ -159,6 +175,7 @@ pub fn handle_hold_lmb (
                     // Move down for the next shot
                     move_down(
                         global_config, 
+                        &weapon,
                         config.dx,
                         config.dy,
                         10,
@@ -190,11 +207,17 @@ pub fn handle_hold_lmb (
                 }
             },
             Weapon::SingleShot(config) => {
+                if !config.enabled {
+                    println!("SingleShot weapon disabled: {}", weapon_id);
+                    break 'outer;
+                }
+                
                 let recoil_completion: Duration = Duration::from_millis(config.recoil_completion_ms as u64);
 
                 // Move down for the shot
                 move_down(
                     global_config, 
+                    &weapon,
                     config.dx,
                     config.dy,
                     10,
