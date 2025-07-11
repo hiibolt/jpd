@@ -42,6 +42,7 @@
     }
 
     .label {
+        font-size: 0.925em;
         font-weight: 600;
         color: #FFFFFF;
     }

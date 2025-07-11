@@ -10,6 +10,8 @@ type KeybindConfig = {
 type MouseConfig = {
     horizontal_multiplier: number;
     vertical_multiplier: number;
+    acog_horizontal_multiplier: number;
+    acog_vertical_multiplier: number;
 };
 export type GlobalConfig = {
     keybinds: KeybindConfig;
@@ -55,6 +57,7 @@ export type SingleShotConfig = {
     recoil_completion_ms: number;
     dx: number;
     dy: number;
+    enabled: boolean;
 };
 export type FullAutoStandardConfig = {
     name: string;
@@ -90,6 +93,8 @@ export const config = writable<GlobalConfig>({
     mouse_config: {
         horizontal_multiplier: 1.0,
         vertical_multiplier: 1.0,
+        acog_horizontal_multiplier: 2.5,
+        acog_vertical_multiplier: 2.5,
     },
 });
 export const current_game_index = writable(0);

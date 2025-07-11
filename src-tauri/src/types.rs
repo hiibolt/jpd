@@ -53,7 +53,7 @@ impl Default for KeybindConfig {
             require_right_hold: true,
             primary_weapon: '1',
             secondary_weapon: '2',
-            alternative_fire: 'm',
+            alternative_fire: '3',
         }
     }
 }
@@ -61,12 +61,18 @@ impl Default for KeybindConfig {
 pub struct MouseConfig {
     pub horizontal_multiplier: f32,
     pub vertical_multiplier: f32,
+    #[serde(default)]
+    pub acog_horizontal_multiplier: f32,
+    #[serde(default)]
+    pub acog_vertical_multiplier: f32,
 }
 impl Default for MouseConfig {
     fn default() -> Self {
         Self {
             horizontal_multiplier: 1.0,
             vertical_multiplier: 1.0,
+            acog_horizontal_multiplier: 1.0,
+            acog_vertical_multiplier: 1.0,
         }
     }
 }
@@ -109,6 +115,7 @@ pub struct SingleShotConfig {
     pub recoil_completion_ms: u32,
     pub dx: f32,
     pub dy: f32,
+    pub enabled: bool,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SingleFireConfig {

@@ -108,6 +108,16 @@ export function changeVerticalMultiplier(newMultiplier: number) {
         .then((new_config) => config.set(new_config as any))
         .catch((error) => handleError('Change to vertical multiplier failed', error));
 }
+export function changeAcogHorizontalMultiplier(newMultiplier: number) {
+    invoke('change_acog_horizontal_multiplier', { newMultiplier })
+        .then((new_config) => config.set(new_config as any))
+        .catch((error) => handleError('Change to ACOG horizontal multiplier failed', error));
+}
+export function changeAcogVerticalMultiplier(newMultiplier: number) {
+    invoke('change_acog_vertical_multiplier', { newMultiplier })
+        .then((new_config) => config.set(new_config as any))
+        .catch((error) => handleError('Change to ACOG vertical multiplier failed', error));
+}
 export function changeSetting(setting: string, value: string | boolean | number) {
     invoke('change_setting', { setting, value })
         .then((new_config) => config.set(new_config as any))

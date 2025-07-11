@@ -13,7 +13,7 @@ use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc
 use crate::{types::{KeyStatus, KeyStatusResponse, LoadedGames}, winapi::main_recoil};
 use crate::types::{AppEvent, AppState, Game, GlobalConfig, Weapon};
 
-const SERVER_BASE_URL: &'static str = "http://5.249.162.64:4777";
+const SERVER_BASE_URL: &'static str = "http://localhost:4777";
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -139,6 +139,36 @@ async fn change_vertical_multiplier (
     Err(format!("Invalid vertical multiplier: {}", new_multiplier))
 }
 #[tauri::command]
+async fn change_acog_horizontal_multiplier (
+    state: tauri::State<'_, AppState>,
+    new_multiplier: f32
+) -> Result<GlobalConfig, String> {
+    if new_multiplier > 0.0 {
+        state.global_config.write_arc().mouse_config.acog_horizontal_multiplier = new_multiplier;
+        save_data(&state).map_err(|e| format!("Failed to save game data: {}", e))?;
+        println!("Changed ACOG horizontal multiplier to {}", new_multiplier);
+        
+        return Ok(state.global_config.read_arc().clone());
+    }
+
+    Err(format!("Invalid ACOG horizontal multiplier: {}", new_multiplier))
+}
+#[tauri::command]
+async fn change_acog_vertical_multiplier (
+    state: tauri::State<'_, AppState>,
+    new_multiplier: f32
+) -> Result<GlobalConfig, String> {
+    if new_multiplier > 0.0 {
+        state.global_config.write_arc().mouse_config.acog_vertical_multiplier = new_multiplier;
+        save_data(&state).map_err(|e| format!("Failed to save game data: {}", e))?;
+        println!("Changed ACOG vertical multiplier to {}", new_multiplier);
+
+        return Ok(state.global_config.read_arc().clone());
+    }
+
+    Err(format!("Invalid ACOG vertical multiplier: {}", new_multiplier))
+}
+#[tauri::command]
 async fn change_loadout (
     state: tauri::State<'_, AppState>,
     new_loadout_index: usize
@@ -211,6 +241,8 @@ fn set_weapon_config(
                 "recoil_completion_ms" => weapon_config.recoil_completion_ms = new_value.as_u64().ok_or("Invalid value for recoil_completion_ms")? as u32,
                 "dx" => weapon_config.dx = new_value.as_f64().ok_or("Invalid value for dx")? as f32,
                 "dy" => weapon_config.dy = new_value.as_f64().ok_or("Invalid value for dy")? as f32,
+                "enabled" => weapon_config.enabled = new_value.as_bool().ok_or("Invalid value for enabled")?,
+
                 _ => return Err(format!("Unknown field: {}", field)),
             }
         },
@@ -394,9 +426,11 @@ async fn load_games (
         let key_response = reqwest::get(url)
             .await
             .map_err(|e| format!("Failed to validate key for game `{}`: {}", game_id, e))?
-            .json::<KeyStatusResponse>()
+            .text()
             .await
             .map_err(|e| format!("Failed to read key response for game `{}`: {}", game_id, e))?;
+        let key_response: KeyStatusResponse = serde_json::from_str(&key_response)
+            .map_err(|e| format!("Failed to convert key response for game `{}`: {}\n\n{key_response}", game_id, e))?;
 
         match &key_response {
             KeyStatusResponse::Valid { timestamp, config, .. } => {
@@ -598,6 +632,8 @@ pub fn run() {
             change_loadout,
             change_horizontal_multiplier,
             change_vertical_multiplier,
+            change_acog_horizontal_multiplier,
+            change_acog_vertical_multiplier,
             change_setting,
 
             load_games_wrapper,
