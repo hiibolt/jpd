@@ -12,6 +12,7 @@ pub struct LoadedGames {
 #[derive(Clone, Deserialize, Serialize, Debug)]
 #[serde(tag = "type")]
 pub enum KeyStatus {
+    HWIDMismatch { key: String },
     Invalid { key: String },
     Valid { key: String, timestamp: u64 },
     Expired { key: String, timestamp: u64 },
@@ -20,6 +21,7 @@ pub enum KeyStatus {
 #[derive(Clone, Deserialize, Serialize, Debug)]
 #[serde(tag = "type")]
 pub enum KeyStatusResponse {
+    HWIDMismatch { key: String },
     Invalid { key: String },
     Valid { key: String, timestamp: u64, config: Game },
     Expired { key: String, timestamp: u64 },

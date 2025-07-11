@@ -8,9 +8,9 @@ use tauri_plugin_updater::UpdaterExt;
 use window_vibrancy::apply_acrylic;
 use anyhow::{anyhow, Result};
 
-use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc}};
+use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc}, collections::HashMap};
 
-use crate::{types::{KeyStatus, KeyStatusResponse, LoadedGames}, winapi::main_recoil};
+use crate::{types::{KeyStatus, KeyStatusResponse, LoadedGames}, winapi::{main_recoil, get_hardware_identifier}};
 use crate::types::{AppEvent, AppState, Game, GlobalConfig, Weapon};
 
 const SERVER_BASE_URL: &'static str = "http://localhost:4777";
@@ -289,14 +289,29 @@ async fn submit_game_key(
     println!("Updated key file for game '{}' at: {}", game_name, key_file_path.display());
     
     // Validate the key with the server and get the full response
-    let url = format!("{SERVER_BASE_URL}/v1/validate/jpd/{}/{}", game_name, key);
+    let hardware_id = get_hardware_identifier();
+    // Simple URL encoding for the hardware identifier - replace problematic characters
+    let encoded_hardware_id = hardware_id
+        .replace(":", "%3A")
+        .replace(" ", "%20")
+        .replace("&", "%26")
+        .replace("=", "%3D")
+        .replace("?", "%3F")
+        .replace("#", "%23");
+    let url = format!("{SERVER_BASE_URL}/v1/validate/jpd/{}/{}/{}", 
+        game_name, 
+        key, 
+        encoded_hardware_id
+    );
     
     let key_response = reqwest::get(url)
         .await
         .map_err(|e| format!("Failed to validate key: {}", e))?
-        .json::<KeyStatusResponse>()
+        .text()
         .await
         .map_err(|e| format!("Failed to read key response: {}", e))?;
+    let key_response: KeyStatusResponse = serde_json::from_str(&key_response)
+        .map_err(|e| format!("Failed to read key response: {}\n\nResponse: {}", e, key_response))?;
     
     // Update the game with the new key and status
     let mut games = state.games.write_arc();
@@ -317,6 +332,8 @@ async fn submit_game_key(
             },
             KeyStatusResponse::Invalid { key } => {
                 game.key_status = Some(KeyStatus::Invalid { key: key.clone() });
+                game.categories = None;  // Clear categories for invalid keys
+                game.weapons = None;     // Clear weapons for invalid keys
                 println!("Key for game '{}' is invalid", game_name);
             },
             KeyStatusResponse::Expired { key, timestamp } => {
@@ -324,11 +341,21 @@ async fn submit_game_key(
                     key: key.clone(), 
                     timestamp: *timestamp 
                 });
+                game.categories = None;  // Clear categories for expired keys
+                game.weapons = None;     // Clear weapons for expired keys
                 println!("Key for game '{}' is expired", game_name);
             },
             KeyStatusResponse::Banned { key } => {
                 game.key_status = Some(KeyStatus::Banned { key: key.clone() });
+                game.categories = None;  // Clear categories for banned keys
+                game.weapons = None;     // Clear weapons for banned keys
                 println!("Key for game '{}' is banned", game_name);
+            },
+            KeyStatusResponse::HWIDMismatch { key } => {
+                game.key_status = Some(KeyStatus::HWIDMismatch { key: key.clone() });
+                game.categories = None;  // Clear categories for HWID mismatch
+                game.weapons = None;     // Clear weapons for HWID mismatch
+                println!("Key for game '{}' has HWID mismatch", game_name);
             },
         }
     }
@@ -370,22 +397,147 @@ fn get_weapon_id (
 
     Ok(weapon_id.clone())
 }
+
+fn load_local_games(games_dir_path: &PathBuf) -> Result<HashMap<String, Game>, String> {
+    use std::collections::HashMap;
+    let mut local_games = HashMap::new();
+    
+    if !games_dir_path.exists() {
+        println!("Games directory does not exist: {}", games_dir_path.display());
+        return Ok(local_games);
+    }
+    
+    // Read all subdirectories in the games directory
+    let entries = std::fs::read_dir(games_dir_path)
+        .map_err(|e| format!("Failed to read games directory: {}", e))?;
+        
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let path = entry.path();
+        
+        if path.is_dir() {
+            let game_name = path.file_name()
+                .and_then(|n| n.to_str())
+                .ok_or_else(|| "Invalid game directory name".to_string())?
+                .to_string();
+                
+            let data_file = path.join("data.json");
+            if data_file.exists() {
+                match std::fs::read_to_string(&data_file) {
+                    Ok(content) => {
+                        match serde_json::from_str::<Game>(&content) {
+                            Ok(game) => {
+                                println!("Loaded local game config: {}", game_name);
+                                local_games.insert(game_name, game);
+                            },
+                            Err(e) => {
+                                eprintln!("Failed to parse local game config for {}: {}", game_name, e);
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Failed to read local game config for {}: {}", game_name, e);
+                    }
+                }
+            }
+        }
+    }
+    
+    Ok(local_games)
+}
+
+fn merge_game_configs(local_game: &mut Game, remote_game: &Game) {
+    // Only update if remote has valid data
+    if let Some(remote_categories) = &remote_game.categories {
+        if let Some(local_categories) = &mut local_game.categories {
+            // Merge categories
+            for remote_category in remote_categories {
+                if let Some(local_category) = local_categories.iter_mut()
+                    .find(|c| c.name == remote_category.name) {
+                    // Merge loadouts within the category
+                    for remote_loadout in &remote_category.loadouts {
+                        if !local_category.loadouts.iter().any(|l| l.name == remote_loadout.name) {
+                            println!("Adding new loadout '{}' to category '{}'", remote_loadout.name, remote_category.name);
+                            local_category.loadouts.push(remote_loadout.clone());
+                        }
+                    }
+                } else {
+                    // Add new category entirely
+                    println!("Adding new category '{}'", remote_category.name);
+                    local_categories.push(remote_category.clone());
+                }
+            }
+        } else {
+            // No local categories, use remote ones
+            local_game.categories = remote_game.categories.clone();
+        }
+    }
+    
+    if let Some(remote_weapons) = &remote_game.weapons {
+        if let Some(local_weapons) = &mut local_game.weapons {
+            // Add new weapons, but don't overwrite existing ones
+            for (weapon_id, remote_weapon) in remote_weapons {
+                if !local_weapons.contains_key(weapon_id) {
+                    println!("Adding new weapon '{}'", weapon_id);
+                    local_weapons.insert(weapon_id.clone(), remote_weapon.clone());
+                }
+            }
+        } else {
+            // No local weapons, use remote ones
+            local_game.weapons = remote_game.weapons.clone();
+        }
+    }
+}
+
 async fn load_games (
     config_dir: PathBuf
 ) -> Result<LoadedGames, String> {
-    // Load each game's data from `{config_dir}/games.json`
     let mut games_ret = Vec::new();
-
-    // Load the games
-    let game_list = reqwest::get(format!("{SERVER_BASE_URL}/v1/products/jpd"))
-        .await
-        .map_err(|e| format!("Failed to fetch games list: {}", e))?
-        .json::<Vec<String>>()
-        .await
-        .map_err(|e| format!("Failed to read games list: {}", e))?;
-    println!("Available games configs: {:?}", game_list);
+    
+    // First, load any existing local games from the config directory
+    let games_dir_path = config_dir.join("games");
+    let mut local_games = load_local_games(&games_dir_path)?;
+    
+    // Then fetch the remote games list to check for updates
+    let game_list = match reqwest::get(format!("{SERVER_BASE_URL}/v1/products/jpd")).await {
+        Ok(response) => {
+            match response.json::<Vec<String>>().await {
+                Ok(list) => {
+                    println!("Available remote games configs: {:?}", list);
+                    list
+                },
+                Err(e) => {
+                    eprintln!("Failed to parse remote games list, using basic game info only: {}", e);
+                    // If we can't get remote data, only provide basic game info (no local configs)
+                    let basic_games: Vec<Game> = local_games.keys().map(|name| Game {
+                        name: name.clone(),
+                        key: None,
+                        key_status: None,
+                        categories: None,
+                        weapons: None,
+                    }).collect();
+                    return Ok(LoadedGames { game_data: basic_games });
+                }
+            }
+        },
+        Err(e) => {
+            eprintln!("Failed to fetch remote games list, using basic game info only: {}", e);
+            // If we can't connect, only provide basic game info (no local configs)
+            let basic_games: Vec<Game> = local_games.keys().map(|name| Game {
+                name: name.clone(),
+                key: None,
+                key_status: None,
+                categories: None,
+                weapons: None,
+            }).collect();
+            return Ok(LoadedGames { game_data: basic_games });
+        }
+    };
 
     for game_id in &game_list {
+        // Check if we have a local version of this game
+        let has_local_game = local_games.contains_key(game_id);
+        
         // Attempt to load the contents of `{config_dir}/{game}.key`
         let game_key_path = config_dir.join(format!("{}.key", game_id));
         let key = if game_key_path.exists() {
@@ -396,6 +548,7 @@ async fn load_games (
                 },
                 Err(e) => {
                     eprintln!("Failed to read key file for game `{}`: {}", game_id, e);
+                    // No key file readable - only provide basic game info
                     games_ret.push(Game {
                         name: game_id.clone(),
                         key: None,
@@ -403,11 +556,12 @@ async fn load_games (
                         categories: None,
                         weapons: None,
                     });
-                    continue; // Skip this game if the key file cannot be read
+                    continue;
                 }
             }
         } else {
-            println!("No key file found for game `{}`, skipping", game_id);
+            println!("No key file found for game `{}`", game_id);
+            // No key file - only provide basic game info
             games_ret.push(Game {
                 name: game_id.clone(),
                 key: None,
@@ -415,36 +569,110 @@ async fn load_games (
                 categories: None,
                 weapons: None,
             });
-            continue; // Skip this game if no key file exists
+            continue;
         };
 
+        let hardware_id = get_hardware_identifier();
+        // Simple URL encoding for the hardware identifier - replace problematic characters
+        let encoded_hardware_id = hardware_id
+            .replace(":", "%3A")
+            .replace(" ", "%20")
+            .replace("&", "%26")
+            .replace("=", "%3D")
+            .replace("?", "%3F")
+            .replace("#", "%23");
         let url = format!(
-            "{SERVER_BASE_URL}/v1/validate/jpd/{}/{}",
-            game_id, key
+            "{SERVER_BASE_URL}/v1/validate/jpd/{}/{}/{}",
+            game_id, key, encoded_hardware_id
         );
 
-        let key_response = reqwest::get(url)
-            .await
-            .map_err(|e| format!("Failed to validate key for game `{}`: {}", game_id, e))?
-            .text()
-            .await
-            .map_err(|e| format!("Failed to read key response for game `{}`: {}", game_id, e))?;
-        let key_response: KeyStatusResponse = serde_json::from_str(&key_response)
-            .map_err(|e| format!("Failed to convert key response for game `{}`: {}\n\n{key_response}", game_id, e))?;
+        let key_response = match reqwest::get(url).await {
+            Ok(response) => {
+                match response.text().await {
+                    Ok(text) => text,
+                    Err(e) => {
+                        eprintln!("Failed to read key response for game `{}`: {}", game_id, e);
+                        // Network error - only provide basic game info (no fallback to local config)
+                        games_ret.push(Game {
+                            name: game_id.clone(),
+                            key: Some(key),
+                            key_status: None,
+                            categories: None,
+                            weapons: None,
+                        });
+                        continue;
+                    }
+                }
+            },
+            Err(e) => {
+                eprintln!("Failed to validate key for game `{}`: {}", game_id, e);
+                // Network error - only provide basic game info (no fallback to local config)
+                games_ret.push(Game {
+                    name: game_id.clone(),
+                    key: Some(key),
+                    key_status: None,
+                    categories: None,
+                    weapons: None,
+                });
+                continue;
+            }
+        };
+        
+        let key_response: KeyStatusResponse = match serde_json::from_str(&key_response) {
+            Ok(response) => response,
+            Err(e) => {
+                eprintln!("Failed to convert key response for game `{}`: {}\n\n{}", game_id, e, key_response);
+                // Parse error - only provide basic game info (no fallback to local config)
+                games_ret.push(Game {
+                    name: game_id.clone(),
+                    key: Some(key),
+                    key_status: None,
+                    categories: None,
+                    weapons: None,
+                });
+                continue;
+            }
+        };
 
         match &key_response {
             KeyStatusResponse::Valid { timestamp, config, .. } => {
-                println!("Key for game `{}` is valid, loading config", game_id);
-                let mut full_game = config.clone();
-                full_game.key = Some(key);
-                full_game.key_status = Some(KeyStatus::Valid { 
-                    key: full_game.key.clone().unwrap_or_default(),
-                    timestamp: *timestamp 
+                println!("Key for game `{}` is valid, processing config", game_id);
+                
+                if has_local_game {
+                    // Merge remote config with local config
+                    let mut local_game = local_games.remove(game_id).unwrap();
+                    merge_game_configs(&mut local_game, config);
+                    local_game.key = Some(key.clone());
+                    local_game.key_status = Some(KeyStatus::Valid { 
+                        key: key,
+                        timestamp: *timestamp 
+                    });
+                    games_ret.push(local_game);
+                } else {
+                    // Use remote config directly
+                    let mut full_game = config.clone();
+                    full_game.key = Some(key.clone());
+                    full_game.key_status = Some(KeyStatus::Valid { 
+                        key: key,
+                        timestamp: *timestamp 
+                    });
+                    games_ret.push(full_game);
+                }
+            },
+            KeyStatusResponse::HWIDMismatch { key } => {
+                println!("Key for game `{}` has HWID mismatch", game_id);
+                // HWID mismatch - only provide basic game info (no local config)
+                games_ret.push(Game {
+                    name: game_id.clone(),
+                    key: Some(key.clone()),
+                    key_status: Some(KeyStatus::HWIDMismatch { key: key.clone() }),
+                    categories: None,
+                    weapons: None,
                 });
-                games_ret.push(full_game);
             },
             KeyStatusResponse::Invalid { key } => {
                 println!("Key for game `{}` is invalid", game_id);
+                // Invalid key - only provide basic game info (no local config)
                 games_ret.push(Game {
                     name: game_id.clone(),
                     key: Some(key.clone()),
@@ -455,6 +683,7 @@ async fn load_games (
             },
             KeyStatusResponse::Expired { key, timestamp } => {
                 println!("Key for game `{}` is expired", game_id);
+                // Expired key - only provide basic game info (no local config)
                 games_ret.push(Game {
                     name: game_id.clone(),
                     key: Some(key.clone()),
@@ -468,6 +697,7 @@ async fn load_games (
             },
             KeyStatusResponse::Banned { key } => {
                 println!("Key for game `{}` is banned", game_id);
+                // Banned key - only provide basic game info (no local config)
                 games_ret.push(Game {
                     name: game_id.clone(),
                     key: Some(key.clone()),
@@ -477,6 +707,18 @@ async fn load_games (
                 });
             },
         }
+    }
+    
+    // Add any remaining local games that weren't in the remote list (basic info only)
+    for (game_name, local_game) in local_games {
+        println!("Adding local-only game: {} (basic info only)", game_name);
+        games_ret.push(Game {
+            name: game_name,
+            key: local_game.key,
+            key_status: local_game.key_status,
+            categories: None,  // Never load local configs without server validation
+            weapons: None,     // Never load local configs without server validation
+        });
     }
 
     println!("Loaded {} games", games_ret.len());
