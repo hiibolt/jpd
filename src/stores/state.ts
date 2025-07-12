@@ -50,6 +50,7 @@ export type SingleFireConfig = {
     dx: number;
     dy: number;
     autofire: boolean;
+    enabled: boolean;
 };
 export type SingleShotConfig = {
     name: string;
@@ -67,10 +68,12 @@ export type FullAutoStandardConfig = {
     exponential_factor: number;
     dx: number;
     dy: number;
+    enabled: boolean;
 };
 export type NoneConfig = {
     name: string;
     description?: string;
+    enabled: boolean;
 };
 
 export type Weapon = {

@@ -6,6 +6,10 @@ use std::sync::{Arc, atomic::AtomicBool};
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 
+fn default_enabled() -> bool {
+    true
+}
+
 pub struct LoadedGames {
     pub game_data: Vec<Game>,
 }
@@ -129,6 +133,8 @@ pub struct SingleFireConfig {
     pub dx: f32,
     pub dy: f32,
     pub autofire: bool,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FullAutoStandardConfig {
@@ -139,11 +145,15 @@ pub struct FullAutoStandardConfig {
     pub exponential_factor: f32,
     pub dx: f32,
     pub dy: f32,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NoneConfig {
     pub name: String,
     pub description: Option<String>,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

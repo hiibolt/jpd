@@ -27,12 +27,16 @@
             <b>{config.autofire ? 'Disable Autofire' : 'Enable Autofire'}</b>
         </button>
 
+        <button class="recoil-toggle" on:click={() =>  setWeaponConfig(weaponId, 'enabled', !config.enabled)}>
+            <b>{config.enabled ? 'Disable Recoil Control' : 'Enable Recoil Control'}</b>
+        </button>
+
     {:else if type === 'SingleShot'}
         <StatField label="Recoil Completion (ms)" value={config.recoil_completion_ms} type="number" onChange={(v) => setWeaponConfig(weaponId, 'recoil_completion_ms', v)} />
         <StatField label="DX" value={config.dx} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dx', v)} />
         <StatField label="DY" value={config.dy} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dy', v)} />
 
-        <button class="autofire-toggle" on:click={() =>  setWeaponConfig(weaponId, 'enabled', !config.enabled)}>
+        <button class="recoil-toggle" on:click={() =>  setWeaponConfig(weaponId, 'enabled', !config.enabled)}>
             <b>{config.enabled ? 'Disable Recoil Control' : 'Enable Recoil Control'}</b>
         </button>
 
@@ -42,14 +46,23 @@
         <StatField label="Exponential Factor" value={config.exponential_factor} type="number" onChange={(v) => setWeaponConfig(weaponId, 'exponential_factor', v)} />
         <StatField label="DX" value={config.dx} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dx', v)} />
         <StatField label="DY" value={config.dy} type="number" onChange={(v) => setWeaponConfig(weaponId, 'dy', v)} />
+
+        <button class="recoil-toggle" on:click={() =>  setWeaponConfig(weaponId, 'enabled', !config.enabled)}>
+            <b>{config.enabled ? 'Disable Recoil Control' : 'Enable Recoil Control'}</b>
+        </button>
     
     {:else if type === 'None'}
         <p class="no-recoil-info">This weapon performs no recoil control.</p>
+        
+        <button class="recoil-toggle" on:click={() =>  setWeaponConfig(weaponId, 'enabled', !config.enabled)}>
+            <b>{config.enabled ? 'Disable Recoil Control' : 'Enable Recoil Control'}</b>
+        </button>
     {/if}
 </div>
 
 <style>
-    .autofire-toggle {
+    .autofire-toggle,
+    .recoil-toggle {
         background: var(--button-bg);
         color: var(--button-fg);
         width: 100%;
@@ -58,6 +71,7 @@
         border-radius: 8px;
         cursor: pointer;
         transition: background 0.2s, color 0.2s;
+        margin-top: 0.5rem;
     }
     .stats-group {
         margin-top: 0.5rem;

@@ -81,14 +81,19 @@ pub fn move_down (
 pub fn handle_hold_lmb (
     state: AppState,
 ) {
+    let mut shooting_started = false;
+    
     'outer: loop {
         let global_config = &*state.global_config.read_arc();
 
         // Check that the right button is also held down
         if global_config.keybinds.require_right_hold && !state.right_hold_active.load(Ordering::SeqCst) {
-            // Emit an event that shooting has stopped
-            if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
-                eprintln!("Failed to send event: {}", e);
+            // Only send StoppedShooting if we previously started shooting
+            if shooting_started {
+                if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
+                    eprintln!("Failed to send event: {}", e);
+                }
+                shooting_started = false;
             }
 
             if !state.left_hold_active.load(Ordering::SeqCst) {
@@ -129,13 +134,26 @@ pub fn handle_hold_lmb (
         };
 
         // Emit an event that shooting has started
-        if let Err(e) = state.events_channel_sender.send(AppEvent::StartedShooting { weapon_ind }) {
-            eprintln!("Failed to send event: {}", e);
+        if !shooting_started {
+            if let Err(e) = state.events_channel_sender.send(AppEvent::StartedShooting { weapon_ind }) {
+                eprintln!("Failed to send event: {}", e);
+            }
+            shooting_started = true;
         }
 
         println!("Controlling weapon: {}", weapon_id);
         match &weapon {
             Weapon::FullAutoStandard(config) => {
+                if !config.enabled {
+                    println!("FullAutoStandard weapon disabled: {}", weapon_id);
+                    if shooting_started {
+                        if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
+                            eprintln!("Failed to send event: {}", e);
+                        }
+                    }
+                    break 'outer;
+                }
+                
                 let seconds_in_minute = 60u128;
                 let nanoseconds_in_second = 1_000_000_000u128;
                 let nanoseconds_per_move = (nanoseconds_in_second * seconds_in_minute) / (config.rpm as u128);
@@ -172,16 +190,21 @@ pub fn handle_hold_lmb (
                 while state.left_hold_active.load(Ordering::SeqCst) && !(global_config.keybinds.require_right_hold && !state.right_hold_active.load(Ordering::SeqCst)) {
                     press_key(global_config.keybinds.alternative_fire);
                     
-                    // Move down for the next shot
-                    move_down(
-                        global_config, 
-                        &weapon,
-                        config.dx,
-                        config.dy,
-                        10,
-                        recoil_completion,
-                        true
-                    );
+                    // Only apply recoil control if enabled
+                    if config.enabled {
+                        move_down(
+                            global_config, 
+                            &weapon,
+                            config.dx,
+                            config.dy,
+                            10,
+                            recoil_completion,
+                            true
+                        );
+                    } else {
+                        // If recoil control is disabled, just wait for the recoil completion time
+                        std::thread::sleep(recoil_completion);
+                    }
 
                     if !state.left_hold_active.load(Ordering::SeqCst) || 
                         !config.autofire ||
@@ -209,6 +232,11 @@ pub fn handle_hold_lmb (
             Weapon::SingleShot(config) => {
                 if !config.enabled {
                     println!("SingleShot weapon disabled: {}", weapon_id);
+                    if shooting_started {
+                        if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
+                            eprintln!("Failed to send event: {}", e);
+                        }
+                    }
                     break 'outer;
                 }
                 
@@ -227,9 +255,24 @@ pub fn handle_hold_lmb (
 
                 break 'outer;
             },
-            Weapon::None(_config) => {
+            Weapon::None(config) => {
+                if !config.enabled {
+                    println!("None weapon disabled: {}", weapon_id);
+                    if shooting_started {
+                        if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
+                            eprintln!("Failed to send event: {}", e);
+                        }
+                    }
+                    break 'outer;
+                }
+                
                 // No recoil control for None type weapons
                 println!("No recoil control for weapon: {}", weapon_id);
+                if shooting_started {
+                    if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
+                        eprintln!("Failed to send event: {}", e);
+                    }
+                }
                 break 'outer;
             }
         }
@@ -239,8 +282,10 @@ pub fn handle_hold_lmb (
         }
     }
 
-    // Emit an event that shooting has stopped
-    if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
-        eprintln!("Failed to send event: {}", e);
+    // Emit an event that shooting has stopped (only if it was started)
+    if shooting_started {
+        if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
+            eprintln!("Failed to send event: {}", e);
+        }
     }
 }

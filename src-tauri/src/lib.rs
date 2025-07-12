@@ -219,6 +219,7 @@ fn set_weapon_config(
                 "dx" => weapon_config.dx = new_value.as_f64().ok_or("Invalid value for dx")? as f32,
                 "dy" => weapon_config.dy = new_value.as_f64().ok_or("Invalid value for dy")? as f32,
                 "autofire" => weapon_config.autofire = new_value.as_bool().ok_or("Invalid value for autofire")?,
+                "enabled" => weapon_config.enabled = new_value.as_bool().ok_or("Invalid value for enabled")?,
                 _ => return Err(format!("Unknown field: {}", field)),
             }
         },
@@ -231,6 +232,7 @@ fn set_weapon_config(
                 "exponential_factor" => weapon_config.exponential_factor = new_value.as_f64().ok_or("Invalid value for exponential_factor")? as f32,
                 "dx" => weapon_config.dx = new_value.as_f64().ok_or("Invalid value for dx")? as f32,
                 "dy" => weapon_config.dy = new_value.as_f64().ok_or("Invalid value for dy")? as f32,
+                "enabled" => weapon_config.enabled = new_value.as_bool().ok_or("Invalid value for enabled")?,
                 _ => return Err(format!("Unknown field: {}", field)),
             }
         },
@@ -246,8 +248,13 @@ fn set_weapon_config(
                 _ => return Err(format!("Unknown field: {}", field)),
             }
         },
-        Weapon::None(_) => {
-            return Err(format!("Cannot set field `{}` for weapon `{}` as it is of type `None`", field, weapon_id));
+        Weapon::None(weapon_config) => {
+            match field.as_str() {
+                "name" => weapon_config.name = new_value.as_str().ok_or("Invalid value for name")?.to_string(),
+                "description" => weapon_config.description = new_value.as_str().map(|s| s.to_string()),
+                "enabled" => weapon_config.enabled = new_value.as_bool().ok_or("Invalid value for enabled")?,
+                _ => return Err(format!("Unknown field: {}", field)),
+            }
         },
     }
 
