@@ -4,13 +4,35 @@
     import ButtonPanel from '../components/ButtonPanel.svelte';
     import Background from '../components/Background.svelte';
     import ConfigGroup from '../components/ConfigGroup.svelte';
-    import { config } from '../stores/state';
+    import { games, config } from '../stores/state';
+    import { resetConfigFromServer } from '../lib/api';
 
     let keybindConfigOptions: any[] = [
         { label: 'Primary Weapon', description: 'Switches to primary weapon', type: 'char', key: 'primary_weapon', value: $config.keybinds.primary_weapon },
-		{ label: 'Secondary Weapon', description: 'Switches to secondary weapon', type: 'char', key: 'secondary_weapon', value: $config.keybinds.secondary_weapon },
-		{ label: 'Alternative Fire', description: 'Bind your shoot key to this in-game for autofire to work', type: 'char', key: 'alternative_fire', value: $config.keybinds.alternative_fire }
+        { label: 'Secondary Weapon', description: 'Switches to secondary weapon', type: 'char', key: 'secondary_weapon', value: $config.keybinds.secondary_weapon },
+        { label: 'Alternative Fire', description: 'Bind your shoot key to this in-game for autofire to work', type: 'char', key: 'alternative_fire', value: $config.keybinds.alternative_fire }
     ];
+
+    let isResetting = false;
+    let resetConfirmVisible = false;
+
+    async function handleResetConfig() {
+        if (!resetConfirmVisible) {
+            resetConfirmVisible = true;
+            return;
+        }
+
+        isResetting = true;
+        resetConfirmVisible = false;
+        
+        await resetConfigFromServer();
+
+		isResetting = false;
+    }
+
+    function cancelReset() {
+        resetConfirmVisible = false;
+    }
 </script>
 
 <Background />
@@ -23,6 +45,29 @@
         <div class="left-column card">
             <h2>Configuration Options</h2>
             <ConfigGroup configOptions={keybindConfigOptions} label="Keybinds" />
+            
+            <div class="reset-config-section">
+                <h3>Reset Game Data</h3>
+                <p class="reset-description">
+                    Reload fresh game configurations from the server. This will refresh all game data, loadouts, and weapon configurations while preserving your personal settings like keybinds and sensitivity.
+                </p>
+                
+                {#if resetConfirmVisible}
+                    <div class="reset-confirm">
+                        <p class="warning-text">⚠️ This will reload all game data from the server. Your keybinds and mouse settings will be preserved.</p>
+                        <div class="reset-buttons">
+                            <button class="reset-btn danger" on:click={handleResetConfig} disabled={isResetting}>
+                                {isResetting ? 'Reloading...' : 'Yes, Reload Game Data'}
+                            </button>
+                            <button class="reset-btn cancel" on:click={cancelReset} disabled={isResetting}>Cancel</button>
+                        </div>
+                    </div>
+                {:else}
+                    <button class="reset-btn primary" on:click={handleResetConfig} disabled={isResetting}>
+                        {isResetting ? 'Reloading Game Data...' : 'Reload Game Data'}
+                    </button>
+                {/if}
+            </div>
         </div>
 
         <!-- Active Loadout -->
@@ -123,6 +168,84 @@ main.container {
 
 h3 {
   margin-top: 0;
+}
+
+.reset-config-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(128, 128, 128, 0.3);
+}
+
+.reset-description {
+  font-size: 0.875rem;
+  color: var(--fg);
+  opacity: 0.8;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.reset-confirm {
+  background-color: rgba(220, 53, 69, 0.1);
+  border: 1px solid rgba(220, 53, 69, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.warning-text {
+  color: #dc3545;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.reset-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.reset-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.reset-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.reset-btn.primary {
+  background-color: var(--accent);
+  color: white;
+}
+
+.reset-btn.primary:hover:not(:disabled) {
+  background-color: #0056cc;
+}
+
+.reset-btn.danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.reset-btn.danger:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.reset-btn.cancel {
+  background-color: #6c757d;
+  color: white;
+}
+
+.reset-btn.cancel:hover:not(:disabled) {
+  background-color: #5a6268;
 }
 </style>
 

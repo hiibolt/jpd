@@ -369,6 +369,36 @@ async fn submit_game_key(
     
     Ok(updated_games)
 }
+#[tauri::command]
+async fn reset_config_from_server(
+    state: tauri::State<'_, AppState>
+) -> Result<Vec<Game>, String> {
+    let config_dir = (*state.config_dir_path).clone();
+    let games_dir_path = config_dir.join("games");
+    
+    // First, completely remove the games directory to clear all local data
+    if games_dir_path.exists() {
+        std::fs::remove_dir_all(&games_dir_path)
+            .map_err(|e| format!("Failed to remove games directory: {}", e))?;
+        println!("Cleared all local game data from: {}", games_dir_path.display());
+    }
+    
+    // Now reload fresh data from the server (this will only use server data, no local merging)
+    let LoadedGames { game_data } = load_games(config_dir).await?;
+    
+    // Update the application state with the fresh data
+    *state.games.write_arc() = game_data.clone();
+    
+    // Reset current indices to 0 since the game list may have changed
+    state.current_game_index.store(0, std::sync::atomic::Ordering::Relaxed);
+    state.current_category_index.store(0, std::sync::atomic::Ordering::Relaxed);
+    state.current_loadout_index.store(0, std::sync::atomic::Ordering::Relaxed);
+    state.current_weapon_index.store(0, std::sync::atomic::Ordering::Relaxed);
+    
+    println!("Successfully reset all game configurations from server. Loaded {} games.", game_data.len());
+    
+    Ok(game_data)
+}
 
 fn get_weapon_id (
     state: &AppState,
@@ -881,7 +911,8 @@ pub fn run() {
             load_games_wrapper,
             set_weapon_config,
             start_channel_reads,
-            submit_game_key
+            submit_game_key,
+            reset_config_from_server
         ])
         .setup(|app| {
             let state = tauri::async_runtime::block_on(setup(app));

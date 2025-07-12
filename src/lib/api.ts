@@ -144,6 +144,21 @@ export function clearErrors() {
     errors.set([]);
 }
 
+export async function resetConfigFromServer() {
+    try {
+        console.log('Resetting configuration from server...');
+        const result = await invoke('reset_config_from_server');
+        const newGames = result as Game[];
+        
+        // Update stores with fresh data
+        games.set(newGames);
+        
+        console.log('Configuration reset successfully:', newGames);
+    } catch (error) {
+        handleError('Reset configuration failed', error);
+    }
+}
+
 export async function restartApplication() {
     try {
         await invoke('restart_app');
