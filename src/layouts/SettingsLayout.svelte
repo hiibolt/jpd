@@ -1,11 +1,12 @@
 <script lang="ts">
     import Titlebar from '../components/Titlebar.svelte';
-    import Banner from '../components/Banner.svelte';
     import ButtonPanel from '../components/ButtonPanel.svelte';
     import Background from '../components/Background.svelte';
     import ConfigGroup from '../components/ConfigGroup.svelte';
-    import { games, config } from '../stores/state';
-    import { resetConfigFromServer } from '../lib/api';
+    import { config } from '../stores/state';
+    import { resetConfigFromServer, changeHorizontalMultiplier, changeVerticalMultiplier, changeAcogHorizontalMultiplier, changeAcogVerticalMultiplier } from '../lib/api';
+    import StatField from '../components/StatField.svelte';
+    import Banner from '../components/Banner.svelte';
 
     let keybindConfigOptions: any[] = [
         { label: 'Primary Weapon', description: 'Switches to primary weapon', type: 'char', key: 'primary_weapon', value: $config.keybinds.primary_weapon },
@@ -38,13 +39,43 @@
 <Background />
 <main class="container">
     <Titlebar />
-    <Banner />
 
     <div class="main-layout">
         <!-- Loadouts -->
         <div class="left-column card">
             <h2>Configuration Options</h2>
             <ConfigGroup configOptions={keybindConfigOptions} label="Keybinds" />
+            
+            <!-- Mouse Sensitivity Settings -->
+            <div class="mouse-config-section">
+                <h3>Mouse Sensitivity Multipliers</h3>
+                <div class="sensitivity-fields">
+                    <StatField
+                        label="1x Vertical Sensitivity Multiplier"
+                        value={$config.mouse_config.vertical_multiplier}
+                        type="number"
+                        onChange={(v) => changeVerticalMultiplier(v)}
+                    />
+                    <StatField
+                        label="1x Horizontal Sensitivity Multiplier"
+                        value={$config.mouse_config.horizontal_multiplier}
+                        type="number"
+                        onChange={(v) => changeHorizontalMultiplier(v)}
+                    />
+                    <StatField
+                        label="2.5x Vertical Sensitivity Multiplier"
+                        value={$config.mouse_config.acog_vertical_multiplier}
+                        type="number"
+                        onChange={(v) => changeAcogVerticalMultiplier(v)}
+                    />
+                    <StatField
+                        label="2.5x Horizontal Sensitivity Multiplier"
+                        value={$config.mouse_config.acog_horizontal_multiplier}
+                        type="number"
+                        onChange={(v) => changeAcogHorizontalMultiplier(v)}
+                    />
+                </div>
+            </div>
             
             <div class="reset-config-section">
                 <h3>Reset Game Data</h3>
@@ -80,6 +111,9 @@
                     <br>
                     Need help? Reach out to CLC and open a support ticket - we're here to help you play best.
                 </p>
+				<div class="username">
+					Maintained by <b>@hiibolt</b> with 🩵
+				</div>
             </div>
 
             <ButtonPanel currentPage="settings"/>
@@ -104,6 +138,11 @@
     --card-bg: rgba(30, 30, 30, 0.8);
     --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
   }
+}
+
+.username {
+	font-size: 0.85em;
+	opacity: 0.75;
 }
 
 main.container {
@@ -246,6 +285,58 @@ h3 {
 
 .reset-btn.cancel:hover:not(:disabled) {
   background-color: #5a6268;
+}
+
+.mouse-config-section {
+  margin: 2rem 0;
+}
+
+.mouse-config-section h3 {
+  color: var(--accent);
+  margin-bottom: 1rem;
+}
+
+.sensitivity-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Custom scrollbar styling for left column */
+.left-column::-webkit-scrollbar {
+  width: 8px;
+}
+
+.left-column::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.left-column::-webkit-scrollbar-thumb {
+  background: var(--accent, #0077ff);
+  border-radius: 4px;
+  opacity: 0.7;
+}
+
+.left-column::-webkit-scrollbar-thumb:hover {
+  background: #0056cc;
+  opacity: 1;
+}
+
+/* Firefox scrollbar styling */
+.left-column {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent, #0077ff) rgba(255, 255, 255, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .left-column::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .left-column {
+    scrollbar-color: var(--accent, #0077ff) rgba(255, 255, 255, 0.05);
+  }
 }
 </style>
 

@@ -98,6 +98,16 @@ export function changeLoadout(index: number) {
         .then((newIndex) => current_loadout_index.set(newIndex as number))
         .catch((error) => handleError('Change to loadout failed', error));
 }
+export function changePrimaryWeapon(index: number) {
+    invoke('change_primary_weapon', { newPrimaryIndex: index })
+        .then((new_games) => games.set(new_games as Game[]))
+        .catch((error) => handleError('Change primary weapon failed', error));
+}
+export function changeSecondaryWeapon(index: number) {
+    invoke('change_secondary_weapon', { newSecondaryIndex: index })
+        .then((new_games) => games.set(new_games as Game[]))
+        .catch((error) => handleError('Change secondary weapon failed', error));
+}
 export function changeHorizontalMultiplier(newMultiplier: number) {
     invoke('change_horizontal_multiplier', { newMultiplier })
         .then((new_config) => config.set(new_config as any))

@@ -50,13 +50,6 @@
         <button class="recoil-toggle" on:click={() =>  setWeaponConfig(weaponId, 'enabled', !config.enabled)}>
             <b>{config.enabled ? 'Disable Recoil Control' : 'Enable Recoil Control'}</b>
         </button>
-    
-    {:else if type === 'None'}
-        <p class="no-recoil-info">This weapon performs no recoil control.</p>
-        
-        <button class="recoil-toggle" on:click={() =>  setWeaponConfig(weaponId, 'enabled', !config.enabled)}>
-            <b>{config.enabled ? 'Disable Recoil Control' : 'Enable Recoil Control'}</b>
-        </button>
     {/if}
 </div>
 
@@ -77,10 +70,5 @@
         margin-top: 0.5rem;
         padding-left: 1rem;
         font-size: 0.9em;
-    }
-    .no-recoil-info {
-        color: var(--text-muted, #888);
-        font-style: italic;
-        margin: 0.5rem 0;
     }
 </style>

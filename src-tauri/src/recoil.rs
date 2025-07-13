@@ -21,7 +21,6 @@ pub fn move_down (
         Weapon::SingleFire(w_config) => w_config.description.as_ref().map_or(false, |desc| desc.to_uppercase().contains("ACOG")),
         Weapon::SingleShot(w_config) => w_config.description.as_ref().map_or(false, |desc| desc.to_uppercase().contains("ACOG")),
         Weapon::FullAutoStandard(w_config) => w_config.description.as_ref().map_or(false, |desc| desc.to_uppercase().contains("ACOG")),
-        Weapon::None(w_config) => w_config.description.as_ref().map_or(false, |desc| desc.to_uppercase().contains("ACOG")),
     };
 
     println!("Has ACOG: {}", has_acog);
@@ -253,26 +252,6 @@ pub fn handle_hold_lmb (
                     true
                 );
 
-                break 'outer;
-            },
-            Weapon::None(config) => {
-                if !config.enabled {
-                    println!("None weapon disabled: {}", weapon_id);
-                    if shooting_started {
-                        if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
-                            eprintln!("Failed to send event: {}", e);
-                        }
-                    }
-                    break 'outer;
-                }
-                
-                // No recoil control for None type weapons
-                println!("No recoil control for weapon: {}", weapon_id);
-                if shooting_started {
-                    if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
-                        eprintln!("Failed to send event: {}", e);
-                    }
-                }
                 break 'outer;
             }
         }

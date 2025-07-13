@@ -39,7 +39,10 @@ export type Loadout = {
     name: string;
     icon_url?: string;
     icon_only: boolean;
-    weapon_ids: string[];
+    primaries: string[];
+    secondaries: string[];
+    selected_primary: number;
+    selected_secondary: number;
 };
 export type SingleFireConfig = {
     name: string;
@@ -70,15 +73,10 @@ export type FullAutoStandardConfig = {
     dy: number;
     enabled: boolean;
 };
-export type NoneConfig = {
-    name: string;
-    description?: string;
-    enabled: boolean;
-};
 
 export type Weapon = {
-    type: 'SingleFire' | 'SingleShot' | 'FullAutoStandard' | 'None';
-    config: SingleFireConfig | SingleShotConfig | FullAutoStandardConfig | NoneConfig;
+    type: 'SingleFire' | 'SingleShot' | 'FullAutoStandard';
+    config: SingleFireConfig | SingleShotConfig | FullAutoStandardConfig;
 };
 
 export type Weapons = Record<string, Weapon>;

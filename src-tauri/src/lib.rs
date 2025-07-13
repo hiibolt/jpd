@@ -13,7 +13,7 @@ use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc
 use crate::{types::{KeyStatus, KeyStatusResponse, LoadedGames}, winapi::{main_recoil, get_hardware_identifier}};
 use crate::types::{AppEvent, AppState, Game, GlobalConfig, Weapon};
 
-const SERVER_BASE_URL: &'static str = "http://5.249.162.64:4777";
+const SERVER_BASE_URL: &'static str = "http://localhost:4777";
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -191,6 +191,77 @@ async fn change_loadout (
 
     Err(format!("Invalid loadout index: {}", new_loadout_index))
 }
+
+#[tauri::command]
+async fn change_primary_weapon (
+    state: tauri::State<'_, AppState>,
+    new_primary_index: usize
+) -> Result<Vec<Game>, String> {
+    let current_game_index = state.current_game_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_category_index = state.current_category_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_loadout_index = state.current_loadout_index.load(std::sync::atomic::Ordering::Relaxed);
+
+    let mut games = state.games.write_arc();
+    if let Some(game) = games.get_mut(current_game_index) {
+        if let Some(category) = game.categories
+            .as_mut().ok_or("Game does not have data loaded.")?
+            .get_mut(current_category_index)
+        {
+            if let Some(loadout) = category.loadouts.get_mut(current_loadout_index) {
+                if new_primary_index < loadout.primaries.len() {
+                    loadout.selected_primary = new_primary_index;
+                    println!("Changed primary weapon to index {}", new_primary_index);
+                    
+                    // Save the updated data
+                    drop(games); // Release the lock before calling save_data
+                    save_data(&state).map_err(|e| format!("Failed to save data: {}", e))?;
+                    
+                    return Ok(state.games.read_arc().clone());
+                } else {
+                    return Err(format!("Primary weapon index {} out of bounds", new_primary_index));
+                }
+            }
+        }
+    }
+    
+    Err("Failed to change primary weapon".to_string())
+}
+
+#[tauri::command]
+async fn change_secondary_weapon (
+    state: tauri::State<'_, AppState>,
+    new_secondary_index: usize
+) -> Result<Vec<Game>, String> {
+    let current_game_index = state.current_game_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_category_index = state.current_category_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_loadout_index = state.current_loadout_index.load(std::sync::atomic::Ordering::Relaxed);
+
+    let mut games = state.games.write_arc();
+    if let Some(game) = games.get_mut(current_game_index) {
+        if let Some(category) = game.categories
+            .as_mut().ok_or("Game does not have data loaded.")?
+            .get_mut(current_category_index)
+        {
+            if let Some(loadout) = category.loadouts.get_mut(current_loadout_index) {
+                if new_secondary_index < loadout.secondaries.len() {
+                    loadout.selected_secondary = new_secondary_index;
+                    println!("Changed secondary weapon to index {}", new_secondary_index);
+                    
+                    // Save the updated data
+                    drop(games); // Release the lock before calling save_data
+                    save_data(&state).map_err(|e| format!("Failed to save data: {}", e))?;
+                    
+                    return Ok(state.games.read_arc().clone());
+                } else {
+                    return Err(format!("Secondary weapon index {} out of bounds", new_secondary_index));
+                }
+            }
+        }
+    }
+    
+    Err("Failed to change secondary weapon".to_string())
+}
+
 #[tauri::command]
 fn set_weapon_config(
     state: tauri::State<'_, AppState>,
@@ -247,15 +318,7 @@ fn set_weapon_config(
 
                 _ => return Err(format!("Unknown field: {}", field)),
             }
-        },
-        Weapon::None(weapon_config) => {
-            match field.as_str() {
-                "name" => weapon_config.name = new_value.as_str().ok_or("Invalid value for name")?.to_string(),
-                "description" => weapon_config.description = new_value.as_str().map(|s| s.to_string()),
-                "enabled" => weapon_config.enabled = new_value.as_bool().ok_or("Invalid value for enabled")?,
-                _ => return Err(format!("Unknown field: {}", field)),
-            }
-        },
+        }
     }
 
     // Save the updated game data
@@ -427,10 +490,23 @@ fn get_weapon_id (
     let current_loadout = &current_category.loadouts.get(current_loadout_index)
         .ok_or(anyhow!("Loadout index {} not found in category `{}` in game `{}`", current_loadout_index, current_category.name, current_game.name))?;
 
-    // Get the current weapon index
+    // Get the current weapon index (0 = primary, 1 = secondary)
     let weapon_ind = state.current_weapon_index.load(Ordering::SeqCst);
-    let weapon_id = current_loadout.weapon_ids.get(weapon_ind)
-        .ok_or(anyhow!("Weapon index `{}` not found in loadout `{}` in category `{}` in game `{}`", weapon_ind, current_loadout.name, current_category.name, current_game.name))?;
+    let weapon_id = if weapon_ind == 0 {
+        // Primary weapon
+        if current_loadout.primaries.is_empty() {
+            return Err(anyhow!("No primary weapons in loadout `{}` in category `{}` in game `{}`", current_loadout.name, current_category.name, current_game.name));
+        }
+        current_loadout.primaries.get(current_loadout.selected_primary)
+            .ok_or(anyhow!("Selected primary index `{}` not found in loadout `{}` in category `{}` in game `{}`", current_loadout.selected_primary, current_loadout.name, current_category.name, current_game.name))?
+    } else {
+        // Secondary weapon
+        if current_loadout.secondaries.is_empty() {
+            return Err(anyhow!("No secondary weapons in loadout `{}` in category `{}` in game `{}`", current_loadout.name, current_category.name, current_game.name));
+        }
+        current_loadout.secondaries.get(current_loadout.selected_secondary)
+            .ok_or(anyhow!("Selected secondary index `{}` not found in loadout `{}` in category `{}` in game `{}`", current_loadout.selected_secondary, current_loadout.name, current_category.name, current_game.name))?
+    };
 
     Ok(weapon_id.clone())
 }
@@ -909,6 +985,8 @@ pub fn run() {
             change_game,
             change_category,
             change_loadout,
+            change_primary_weapon,
+            change_secondary_weapon,
             change_horizontal_multiplier,
             change_vertical_multiplier,
             change_acog_horizontal_multiplier,

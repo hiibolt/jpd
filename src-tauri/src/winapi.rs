@@ -297,10 +297,6 @@ unsafe extern "system" fn wnd_proc(
                             Weapon::SingleFire(config) => (&mut config.dx, &mut config.dy),
                             Weapon::FullAutoStandard(config) => (&mut config.dx, &mut config.dy),
                             Weapon::SingleShot(config) => (&mut config.dx, &mut config.dy),
-                            Weapon::None(_) => {
-                                eprintln!("No recoil control for None type weapons");
-                                return 0;
-                            }
                         };
                         *dx_mut_ref += if keyboard.VKey as i32 == VK_HOME { 0.1 } else if keyboard.VKey as i32 == VK_END { -0.1 } else { 0.0 };
                         *dy_mut_ref += if keyboard.VKey as i32 == VK_PRIOR { 0.1 } else if keyboard.VKey as i32 == VK_NEXT { -0.1 } else { 0.0 };

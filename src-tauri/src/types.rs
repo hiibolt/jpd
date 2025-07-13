@@ -148,13 +148,6 @@ pub struct FullAutoStandardConfig {
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 }
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct NoneConfig {
-    pub name: String,
-    pub description: Option<String>,
-    #[serde(default = "default_enabled")]
-    pub enabled: bool,
-}
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Game {
@@ -175,13 +168,15 @@ pub struct Loadout {
     pub icon_url: Option<String>,
     #[serde(default)]
     pub icon_only: bool,
-    pub weapon_ids: Vec<String>,
+    pub primaries: Vec<String>,
+    pub secondaries: Vec<String>,
+    pub selected_primary: usize,
+    pub selected_secondary: usize,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type", content = "config")]
+#[serde(tag = "type", content = "config")]  
 pub enum Weapon {
     SingleFire(SingleFireConfig),
     SingleShot(SingleShotConfig),
     FullAutoStandard(FullAutoStandardConfig),
-    None(NoneConfig),
 }
