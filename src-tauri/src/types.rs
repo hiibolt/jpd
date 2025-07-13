@@ -2,9 +2,27 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{mpsc::{Sender, Receiver}, atomic::AtomicUsize};
 use std::sync::{Arc, atomic::AtomicBool};
+use std::time::Instant;
 
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
+
+fn default_enabled() -> bool {
+    true
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct GridLayoutInfo {
+    pub loadouts_per_row: usize,
+}
+
+impl Default for GridLayoutInfo {
+    fn default() -> Self {
+        Self {
+            loadouts_per_row: 4, // Default to 4 loadouts per row
+        }
+    }
+}
 
 pub struct LoadedGames {
     pub game_data: Vec<Game>,
@@ -35,6 +53,12 @@ pub enum AppEvent {
     },
     SwitchedWeapon {
         weapon_ind: usize,
+    },
+    SwitchedLoadout {
+        loadout_ind: usize,
+    },
+    SwitchedCategory {
+        category_ind: usize,
     },
     StartedShooting {
         weapon_ind: usize
@@ -109,6 +133,11 @@ pub struct AppState {
     pub current_category_index: Arc<AtomicUsize>,
     pub current_loadout_index:  Arc<AtomicUsize>,
     pub current_weapon_index:   Arc<AtomicUsize>,
+
+    pub grid_layout_info: Arc<RwLock<GridLayoutInfo>>,
+    
+    // Track last shot time per weapon ID for SingleFire trigger cap
+    pub last_shot_times: Arc<RwLock<HashMap<String, Instant>>>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SingleShotConfig {
@@ -129,6 +158,8 @@ pub struct SingleFireConfig {
     pub dx: f32,
     pub dy: f32,
     pub autofire: bool,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FullAutoStandardConfig {
@@ -139,11 +170,8 @@ pub struct FullAutoStandardConfig {
     pub exponential_factor: f32,
     pub dx: f32,
     pub dy: f32,
-}
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct NoneConfig {
-    pub name: String,
-    pub description: Option<String>,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -165,13 +193,15 @@ pub struct Loadout {
     pub icon_url: Option<String>,
     #[serde(default)]
     pub icon_only: bool,
-    pub weapon_ids: Vec<String>,
+    pub primaries: Vec<String>,
+    pub secondaries: Vec<String>,
+    pub selected_primary: usize,
+    pub selected_secondary: usize,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type", content = "config")]
+#[serde(tag = "type", content = "config")]  
 pub enum Weapon {
     SingleFire(SingleFireConfig),
     SingleShot(SingleShotConfig),
     FullAutoStandard(FullAutoStandardConfig),
-    None(NoneConfig),
 }

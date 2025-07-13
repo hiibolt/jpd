@@ -1,28 +1,104 @@
 <script lang="ts">
     import Titlebar from '../components/Titlebar.svelte';
-    import Banner from '../components/Banner.svelte';
     import ButtonPanel from '../components/ButtonPanel.svelte';
     import Background from '../components/Background.svelte';
     import ConfigGroup from '../components/ConfigGroup.svelte';
     import { config } from '../stores/state';
+    import { resetConfigFromServer, changeHorizontalMultiplier, changeVerticalMultiplier, changeAcogHorizontalMultiplier, changeAcogVerticalMultiplier } from '../lib/api';
+    import StatField from '../components/StatField.svelte';
+    import Banner from '../components/Banner.svelte';
 
     let keybindConfigOptions: any[] = [
         { label: 'Primary Weapon', description: 'Switches to primary weapon', type: 'char', key: 'primary_weapon', value: $config.keybinds.primary_weapon },
-		{ label: 'Secondary Weapon', description: 'Switches to secondary weapon', type: 'char', key: 'secondary_weapon', value: $config.keybinds.secondary_weapon },
-		{ label: 'Alternative Fire', description: 'Bind your shoot key to this in-game for autofire to work', type: 'char', key: 'alternative_fire', value: $config.keybinds.alternative_fire }
+        { label: 'Secondary Weapon', description: 'Switches to secondary weapon', type: 'char', key: 'secondary_weapon', value: $config.keybinds.secondary_weapon },
+        { label: 'Alternative Fire', description: 'Bind your shoot key to this in-game for autofire to work', type: 'char', key: 'alternative_fire', value: $config.keybinds.alternative_fire }
     ];
+
+    let isResetting = false;
+    let resetConfirmVisible = false;
+
+    async function handleResetConfig() {
+        if (!resetConfirmVisible) {
+            resetConfirmVisible = true;
+            return;
+        }
+
+        isResetting = true;
+        resetConfirmVisible = false;
+        
+        await resetConfigFromServer();
+
+		isResetting = false;
+    }
+
+    function cancelReset() {
+        resetConfirmVisible = false;
+    }
 </script>
 
 <Background />
 <main class="container">
     <Titlebar />
-    <Banner />
 
     <div class="main-layout">
         <!-- Loadouts -->
         <div class="left-column card">
             <h2>Configuration Options</h2>
             <ConfigGroup configOptions={keybindConfigOptions} label="Keybinds" />
+            
+            <!-- Mouse Sensitivity Settings -->
+            <div class="mouse-config-section">
+                <h3>Mouse Sensitivity Multipliers</h3>
+                <div class="sensitivity-fields">
+                    <StatField
+                        label="1x Vertical Sensitivity Multiplier"
+                        value={$config.mouse_config.vertical_multiplier}
+                        type="number"
+                        onChange={(v) => changeVerticalMultiplier(v)}
+                    />
+                    <StatField
+                        label="1x Horizontal Sensitivity Multiplier"
+                        value={$config.mouse_config.horizontal_multiplier}
+                        type="number"
+                        onChange={(v) => changeHorizontalMultiplier(v)}
+                    />
+                    <StatField
+                        label="2.5x Vertical Sensitivity Multiplier"
+                        value={$config.mouse_config.acog_vertical_multiplier}
+                        type="number"
+                        onChange={(v) => changeAcogVerticalMultiplier(v)}
+                    />
+                    <StatField
+                        label="2.5x Horizontal Sensitivity Multiplier"
+                        value={$config.mouse_config.acog_horizontal_multiplier}
+                        type="number"
+                        onChange={(v) => changeAcogHorizontalMultiplier(v)}
+                    />
+                </div>
+            </div>
+            
+            <div class="reset-config-section">
+                <h3>Reset Game Data</h3>
+                <p class="reset-description">
+                    Reload fresh game configurations from the server. This will refresh all game data, loadouts, and weapon configurations while preserving your personal settings like keybinds and sensitivity.
+                </p>
+                
+                {#if resetConfirmVisible}
+                    <div class="reset-confirm">
+                        <p class="warning-text">⚠️ This will reload all game data from the server. Your keybinds and mouse settings will be preserved.</p>
+                        <div class="reset-buttons">
+                            <button class="reset-btn danger" on:click={handleResetConfig} disabled={isResetting}>
+                                {isResetting ? 'Reloading...' : 'Yes, Reload Game Data'}
+                            </button>
+                            <button class="reset-btn cancel" on:click={cancelReset} disabled={isResetting}>Cancel</button>
+                        </div>
+                    </div>
+                {:else}
+                    <button class="reset-btn primary" on:click={handleResetConfig} disabled={isResetting}>
+                        {isResetting ? 'Reloading Game Data...' : 'Reload Game Data'}
+                    </button>
+                {/if}
+            </div>
         </div>
 
         <!-- Active Loadout -->
@@ -35,6 +111,9 @@
                     <br>
                     Need help? Reach out to CLC and open a support ticket - we're here to help you play best.
                 </p>
+				<div class="username">
+					Maintained by <b>@hiibolt</b> with 🩵
+				</div>
             </div>
 
             <ButtonPanel currentPage="settings"/>
@@ -59,6 +138,11 @@
     --card-bg: rgba(30, 30, 30, 0.8);
     --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
   }
+}
+
+.username {
+	font-size: 0.85em;
+	opacity: 0.75;
 }
 
 main.container {
@@ -123,6 +207,136 @@ main.container {
 
 h3 {
   margin-top: 0;
+}
+
+.reset-config-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(128, 128, 128, 0.3);
+}
+
+.reset-description {
+  font-size: 0.875rem;
+  color: var(--fg);
+  opacity: 0.8;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.reset-confirm {
+  background-color: rgba(220, 53, 69, 0.1);
+  border: 1px solid rgba(220, 53, 69, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.warning-text {
+  color: #dc3545;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.reset-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.reset-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.reset-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.reset-btn.primary {
+  background-color: var(--accent);
+  color: white;
+}
+
+.reset-btn.primary:hover:not(:disabled) {
+  background-color: #0056cc;
+}
+
+.reset-btn.danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.reset-btn.danger:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.reset-btn.cancel {
+  background-color: #6c757d;
+  color: white;
+}
+
+.reset-btn.cancel:hover:not(:disabled) {
+  background-color: #5a6268;
+}
+
+.mouse-config-section {
+  margin: 2rem 0;
+}
+
+.mouse-config-section h3 {
+  color: var(--accent);
+  margin-bottom: 1rem;
+}
+
+.sensitivity-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Custom scrollbar styling for left column */
+.left-column::-webkit-scrollbar {
+  width: 8px;
+}
+
+.left-column::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.left-column::-webkit-scrollbar-thumb {
+  background: var(--accent, #0077ff);
+  border-radius: 4px;
+  opacity: 0.7;
+}
+
+.left-column::-webkit-scrollbar-thumb:hover {
+  background: #0056cc;
+  opacity: 1;
+}
+
+/* Firefox scrollbar styling */
+.left-column {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent, #0077ff) rgba(255, 255, 255, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .left-column::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .left-column {
+    scrollbar-color: var(--accent, #0077ff) rgba(255, 255, 255, 0.05);
+  }
 }
 </style>
 

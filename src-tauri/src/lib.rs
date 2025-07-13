@@ -25,6 +25,18 @@ fn get_config(state: tauri::State<'_, AppState>) -> GlobalConfig {
     state.global_config.read_arc().clone()
 }
 #[tauri::command]
+fn update_grid_layout(
+    state: tauri::State<'_, AppState>,
+    loadouts_per_row: usize
+) -> Result<(), String> {
+    let mut grid_layout = state.grid_layout_info.write_arc();
+    grid_layout.loadouts_per_row = loadouts_per_row;
+    
+    println!("Updated grid layout: {} loadouts per row", loadouts_per_row);
+    
+    Ok(())
+}
+#[tauri::command]
 fn get_version(
     app: tauri::AppHandle
 ) -> String {
@@ -184,6 +196,12 @@ async fn change_loadout (
             if new_loadout_index < category.loadouts.len() {
                 state.current_loadout_index.store(new_loadout_index, std::sync::atomic::Ordering::Relaxed);
                 println!("Changed loadout to index {}", new_loadout_index);
+                
+                // Emit event for loadout change
+                let _ = state.events_channel_sender.send(AppEvent::SwitchedLoadout {
+                    loadout_ind: new_loadout_index,
+                });
+                
                 return Ok(new_loadout_index);
             }
         }
@@ -191,6 +209,77 @@ async fn change_loadout (
 
     Err(format!("Invalid loadout index: {}", new_loadout_index))
 }
+
+#[tauri::command]
+async fn change_primary_weapon (
+    state: tauri::State<'_, AppState>,
+    new_primary_index: usize
+) -> Result<Vec<Game>, String> {
+    let current_game_index = state.current_game_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_category_index = state.current_category_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_loadout_index = state.current_loadout_index.load(std::sync::atomic::Ordering::Relaxed);
+
+    let mut games = state.games.write_arc();
+    if let Some(game) = games.get_mut(current_game_index) {
+        if let Some(category) = game.categories
+            .as_mut().ok_or("Game does not have data loaded.")?
+            .get_mut(current_category_index)
+        {
+            if let Some(loadout) = category.loadouts.get_mut(current_loadout_index) {
+                if new_primary_index < loadout.primaries.len() {
+                    loadout.selected_primary = new_primary_index;
+                    println!("Changed primary weapon to index {}", new_primary_index);
+                    
+                    // Save the updated data
+                    drop(games); // Release the lock before calling save_data
+                    save_data(&state).map_err(|e| format!("Failed to save data: {}", e))?;
+                    
+                    return Ok(state.games.read_arc().clone());
+                } else {
+                    return Err(format!("Primary weapon index {} out of bounds", new_primary_index));
+                }
+            }
+        }
+    }
+    
+    Err("Failed to change primary weapon".to_string())
+}
+
+#[tauri::command]
+async fn change_secondary_weapon (
+    state: tauri::State<'_, AppState>,
+    new_secondary_index: usize
+) -> Result<Vec<Game>, String> {
+    let current_game_index = state.current_game_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_category_index = state.current_category_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_loadout_index = state.current_loadout_index.load(std::sync::atomic::Ordering::Relaxed);
+
+    let mut games = state.games.write_arc();
+    if let Some(game) = games.get_mut(current_game_index) {
+        if let Some(category) = game.categories
+            .as_mut().ok_or("Game does not have data loaded.")?
+            .get_mut(current_category_index)
+        {
+            if let Some(loadout) = category.loadouts.get_mut(current_loadout_index) {
+                if new_secondary_index < loadout.secondaries.len() {
+                    loadout.selected_secondary = new_secondary_index;
+                    println!("Changed secondary weapon to index {}", new_secondary_index);
+                    
+                    // Save the updated data
+                    drop(games); // Release the lock before calling save_data
+                    save_data(&state).map_err(|e| format!("Failed to save data: {}", e))?;
+                    
+                    return Ok(state.games.read_arc().clone());
+                } else {
+                    return Err(format!("Secondary weapon index {} out of bounds", new_secondary_index));
+                }
+            }
+        }
+    }
+    
+    Err("Failed to change secondary weapon".to_string())
+}
+
 #[tauri::command]
 fn set_weapon_config(
     state: tauri::State<'_, AppState>,
@@ -219,6 +308,7 @@ fn set_weapon_config(
                 "dx" => weapon_config.dx = new_value.as_f64().ok_or("Invalid value for dx")? as f32,
                 "dy" => weapon_config.dy = new_value.as_f64().ok_or("Invalid value for dy")? as f32,
                 "autofire" => weapon_config.autofire = new_value.as_bool().ok_or("Invalid value for autofire")?,
+                "enabled" => weapon_config.enabled = new_value.as_bool().ok_or("Invalid value for enabled")?,
                 _ => return Err(format!("Unknown field: {}", field)),
             }
         },
@@ -231,6 +321,7 @@ fn set_weapon_config(
                 "exponential_factor" => weapon_config.exponential_factor = new_value.as_f64().ok_or("Invalid value for exponential_factor")? as f32,
                 "dx" => weapon_config.dx = new_value.as_f64().ok_or("Invalid value for dx")? as f32,
                 "dy" => weapon_config.dy = new_value.as_f64().ok_or("Invalid value for dy")? as f32,
+                "enabled" => weapon_config.enabled = new_value.as_bool().ok_or("Invalid value for enabled")?,
                 _ => return Err(format!("Unknown field: {}", field)),
             }
         },
@@ -245,10 +336,7 @@ fn set_weapon_config(
 
                 _ => return Err(format!("Unknown field: {}", field)),
             }
-        },
-        Weapon::None(_) => {
-            return Err(format!("Cannot set field `{}` for weapon `{}` as it is of type `None`", field, weapon_id));
-        },
+        }
     }
 
     // Save the updated game data
@@ -369,6 +457,36 @@ async fn submit_game_key(
     
     Ok(updated_games)
 }
+#[tauri::command]
+async fn reset_config_from_server(
+    state: tauri::State<'_, AppState>
+) -> Result<Vec<Game>, String> {
+    let config_dir = (*state.config_dir_path).clone();
+    let games_dir_path = config_dir.join("games");
+    
+    // First, completely remove the games directory to clear all local data
+    if games_dir_path.exists() {
+        std::fs::remove_dir_all(&games_dir_path)
+            .map_err(|e| format!("Failed to remove games directory: {}", e))?;
+        println!("Cleared all local game data from: {}", games_dir_path.display());
+    }
+    
+    // Now reload fresh data from the server (this will only use server data, no local merging)
+    let LoadedGames { game_data } = load_games(config_dir).await?;
+    
+    // Update the application state with the fresh data
+    *state.games.write_arc() = game_data.clone();
+    
+    // Reset current indices to 0 since the game list may have changed
+    state.current_game_index.store(0, std::sync::atomic::Ordering::Relaxed);
+    state.current_category_index.store(0, std::sync::atomic::Ordering::Relaxed);
+    state.current_loadout_index.store(0, std::sync::atomic::Ordering::Relaxed);
+    state.current_weapon_index.store(0, std::sync::atomic::Ordering::Relaxed);
+    
+    println!("Successfully reset all game configurations from server. Loaded {} games.", game_data.len());
+    
+    Ok(game_data)
+}
 
 fn get_weapon_id (
     state: &AppState,
@@ -390,10 +508,23 @@ fn get_weapon_id (
     let current_loadout = &current_category.loadouts.get(current_loadout_index)
         .ok_or(anyhow!("Loadout index {} not found in category `{}` in game `{}`", current_loadout_index, current_category.name, current_game.name))?;
 
-    // Get the current weapon index
+    // Get the current weapon index (0 = primary, 1 = secondary)
     let weapon_ind = state.current_weapon_index.load(Ordering::SeqCst);
-    let weapon_id = current_loadout.weapon_ids.get(weapon_ind)
-        .ok_or(anyhow!("Weapon index `{}` not found in loadout `{}` in category `{}` in game `{}`", weapon_ind, current_loadout.name, current_category.name, current_game.name))?;
+    let weapon_id = if weapon_ind == 0 {
+        // Primary weapon
+        if current_loadout.primaries.is_empty() {
+            return Err(anyhow!("No primary weapons in loadout `{}` in category `{}` in game `{}`", current_loadout.name, current_category.name, current_game.name));
+        }
+        current_loadout.primaries.get(current_loadout.selected_primary)
+            .ok_or(anyhow!("Selected primary index `{}` not found in loadout `{}` in category `{}` in game `{}`", current_loadout.selected_primary, current_loadout.name, current_category.name, current_game.name))?
+    } else {
+        // Secondary weapon
+        if current_loadout.secondaries.is_empty() {
+            return Err(anyhow!("No secondary weapons in loadout `{}` in category `{}` in game `{}`", current_loadout.name, current_category.name, current_game.name));
+        }
+        current_loadout.secondaries.get(current_loadout.selected_secondary)
+            .ok_or(anyhow!("Selected secondary index `{}` not found in loadout `{}` in category `{}` in game `{}`", current_loadout.selected_secondary, current_loadout.name, current_category.name, current_game.name))?
+    };
 
     Ok(weapon_id.clone())
 }
@@ -849,6 +980,9 @@ async fn setup(
         current_category_index: Arc::new(AtomicUsize::new(0)),
         current_loadout_index:  Arc::new(AtomicUsize::new(0)),
         current_weapon_index:   Arc::new(AtomicUsize::new(0)),
+        
+        grid_layout_info:       Arc::new(RwLock::new(Default::default())),
+        last_shot_times:        Arc::new(RwLock::new(HashMap::new())),
     };
     let state_cloned = state.clone();
 
@@ -872,6 +1006,8 @@ pub fn run() {
             change_game,
             change_category,
             change_loadout,
+            change_primary_weapon,
+            change_secondary_weapon,
             change_horizontal_multiplier,
             change_vertical_multiplier,
             change_acog_horizontal_multiplier,
@@ -881,7 +1017,9 @@ pub fn run() {
             load_games_wrapper,
             set_weapon_config,
             start_channel_reads,
-            submit_game_key
+            submit_game_key,
+            reset_config_from_server,
+            update_grid_layout
         ])
         .setup(|app| {
             let state = tauri::async_runtime::block_on(setup(app));
@@ -900,4 +1038,43 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// Function for cycling through categories (used by INSERT key)
+fn cycle_category(state: &AppState) -> Result<usize, String> {
+    let current_game_index = state.current_game_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_category_index = state.current_category_index.load(std::sync::atomic::Ordering::Relaxed);
+
+    if let Some(game) = state.games.read_arc().get(current_game_index) {
+        let category_count = game.categories.as_ref().map(|c| c.len()).unwrap_or(0);
+        
+        if category_count == 0 {
+            return Err("No categories available".to_string());
+        }
+        
+        // Cycle to next category, wrapping around to 0 if at the end
+        let next_category_index = (current_category_index + 1) % category_count;
+        
+        state.current_category_index.store(next_category_index, std::sync::atomic::Ordering::Relaxed);
+        state.current_loadout_index.store(0, std::sync::atomic::Ordering::Relaxed); // Reset loadout to first
+        
+        println!("Cycled to category index {} (from {})", next_category_index, current_category_index);
+        
+        // Send events to update the frontend
+        if let Err(e) = state.events_channel_sender.send(AppEvent::SwitchedCategory {
+            category_ind: next_category_index,
+        }) {
+            eprintln!("Failed to send SwitchedCategory event: {}", e);
+        }
+        
+        if let Err(e) = state.events_channel_sender.send(AppEvent::SwitchedLoadout {
+            loadout_ind: 0,
+        }) {
+            eprintln!("Failed to send SwitchedLoadout event: {}", e);
+        }
+        
+        return Ok(next_category_index);
+    }
+
+    Err("No game selected".to_string())
 }

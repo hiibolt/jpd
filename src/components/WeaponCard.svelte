@@ -16,7 +16,7 @@
 
 <div class="weapon-card {active ? 'active' : ''} {open ? 'open' : ''}">
     <div class="weapon-header">
-        <span><b>{weapon.config.name}</b></span>
+        <span style="padding-right: 8px;"><b>{weapon.config.name}</b></span>
         <span class="weapon-status {shooting ? 'shooting' : 'not-shooting'}"></span>
     </div>
 

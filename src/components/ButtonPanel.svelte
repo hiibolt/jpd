@@ -6,7 +6,7 @@
 
 <div class="account-panel card">
     <div class="username">
-        <b>@hiibolt</b>
+        Product of <b>CLC Services</b>
     </div>
     <div class="button-group">
         {#if currentPage !== 'home'}
