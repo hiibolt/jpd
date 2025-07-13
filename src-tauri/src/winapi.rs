@@ -223,6 +223,19 @@ unsafe extern "system" fn wnd_proc(
                         println!(":3 [LMB] ^");
                         state.left_hold_active.store(false, Ordering::SeqCst);
                     }
+
+                    // Handle mouse wheel events
+                    if flags & RI_MOUSE_WHEEL != 0 {
+                        let wheel_delta = mouse.usButtonData as i16;
+                        let scroll_up = wheel_delta > 0;
+                        
+                        println!(":3 [WHEEL] {}", if scroll_up { "UP" } else { "DOWN" });
+                        
+                        // Cycle weapon type based on scroll direction
+                        if let Err(e) = crate::cycle_weapon_type(state, scroll_up) {
+                            eprintln!("Failed to cycle weapon type: {}", e);
+                        }
+                    }
                 }
             }
 
