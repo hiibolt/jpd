@@ -665,9 +665,9 @@ async fn load_games (
         }
     };
 
-    for game_id in &game_list {
+    for game_id in game_list.clone() {
         // Check if we have a local version of this game
-        let has_local_game = local_games.contains_key(game_id);
+        let has_local_game = local_games.contains_key(&game_id);
         
         // Attempt to load the contents of `{config_dir}/{game}.key`
         let game_key_path = config_dir.join(format!("{}.key", game_id));
@@ -771,7 +771,7 @@ async fn load_games (
                 
                 if has_local_game {
                     // Merge remote config with local config
-                    let mut local_game = local_games.remove(game_id).unwrap();
+                    let mut local_game = local_games.remove(&game_id).unwrap();
                     merge_game_configs(&mut local_game, config);
                     local_game.key = Some(key.clone());
                     local_game.key_status = Some(KeyStatus::Valid { 
@@ -792,6 +792,8 @@ async fn load_games (
             },
             KeyStatusResponse::HWIDMismatch { key } => {
                 println!("Key for game `{}` has HWID mismatch", game_id);
+                // Remove from local_games to prevent duplicate in final loop
+                local_games.remove(&game_id);
                 // HWID mismatch - only provide basic game info (no local config)
                 games_ret.push(Game {
                     name: game_id.clone(),
@@ -803,6 +805,8 @@ async fn load_games (
             },
             KeyStatusResponse::Invalid { key } => {
                 println!("Key for game `{}` is invalid", game_id);
+                // Remove from local_games to prevent duplicate in final loop
+                local_games.remove(&game_id);
                 // Invalid key - only provide basic game info (no local config)
                 games_ret.push(Game {
                     name: game_id.clone(),
@@ -814,6 +818,8 @@ async fn load_games (
             },
             KeyStatusResponse::Expired { key, timestamp } => {
                 println!("Key for game `{}` is expired", game_id);
+                // Remove from local_games to prevent duplicate in final loop
+                local_games.remove(&game_id);
                 // Expired key - only provide basic game info (no local config)
                 games_ret.push(Game {
                     name: game_id.clone(),
@@ -828,6 +834,8 @@ async fn load_games (
             },
             KeyStatusResponse::Banned { key } => {
                 println!("Key for game `{}` is banned", game_id);
+                // Remove from local_games to prevent duplicate in final loop
+                local_games.remove(&game_id);
                 // Banned key - only provide basic game info (no local config)
                 games_ret.push(Game {
                     name: game_id.clone(),
