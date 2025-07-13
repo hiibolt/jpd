@@ -1040,6 +1040,67 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
+// Function for cycling through weapon types (used by scroll wheel)
+pub fn cycle_weapon_type(state: &AppState, scroll_up: bool) -> Result<usize, String> {
+    let current_game_index = state.current_game_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_category_index = state.current_category_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_loadout_index = state.current_loadout_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_weapon_index = state.current_weapon_index.load(std::sync::atomic::Ordering::Relaxed);
+
+    if let Some(game) = state.games.read_arc().get(current_game_index) {
+        if let Some(category) = game.categories
+            .as_ref().ok_or("Game does not have data loaded.")?
+            .get(current_category_index)
+        {
+            if let Some(loadout) = category.loadouts.get(current_loadout_index) {
+                // Check if both primary and secondary weapons are available
+                let has_primary = !loadout.primaries.is_empty();
+                let has_secondary = !loadout.secondaries.is_empty();
+                
+                if !has_primary && !has_secondary {
+                    return Err("No weapons available in current loadout".to_string());
+                }
+                
+                let next_weapon_index = if has_primary && has_secondary {
+                    // Both weapon types available, cycle between them
+                    if scroll_up {
+                        (current_weapon_index + 1) % 2
+                    } else {
+                        if current_weapon_index == 0 { 1 } else { 0 }
+                    }
+                } else if has_primary {
+                    // Only primary available
+                    0
+                } else {
+                    // Only secondary available  
+                    1
+                };
+                
+                // Only update if there's actually a change
+                if next_weapon_index != current_weapon_index {
+                    state.current_weapon_index.store(next_weapon_index, std::sync::atomic::Ordering::Relaxed);
+                    
+                    // Clear shot timing for trigger cap when switching weapons
+                    crate::recoil::clear_current_weapon_timing(state);
+                    
+                    println!("Cycled to weapon index {} (scroll {})", next_weapon_index, if scroll_up { "up" } else { "down" });
+                    
+                    // Send event to update the frontend
+                    if let Err(e) = state.events_channel_sender.send(AppEvent::SwitchedWeapon {
+                        weapon_ind: next_weapon_index,
+                    }) {
+                        eprintln!("Failed to send SwitchedWeapon event: {}", e);
+                    }
+                }
+                
+                return Ok(next_weapon_index);
+            }
+        }
+    }
+
+    Err("Invalid game, category, or loadout state".to_string())
+}
+
 // Function for cycling through categories (used by INSERT key)
 fn cycle_category(state: &AppState) -> Result<usize, String> {
     let current_game_index = state.current_game_index.load(std::sync::atomic::Ordering::Relaxed);
