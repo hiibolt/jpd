@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { type Category, current_category_index } from "../stores/state";
+    import { type Category, current_category_index, current_loadout_index } from "../stores/state";
     import { changeLoadout, changeCategory } from "../lib/api";
 
     import LoadoutCard from "./LoadoutCard.svelte";
@@ -21,7 +21,11 @@
         <div class="category-loadouts">
             {#if category.loadouts.length > 1}
                 {#each category.loadouts as loadout, index}
-                    <LoadoutCard loadout={loadout} onClick={() => changeLoadout(index)} />
+                    <LoadoutCard 
+                        loadout={loadout} 
+                        onClick={() => changeLoadout(index)} 
+                        active={$current_loadout_index === index}
+                    />
                 {/each}
             {:else}
                 <p>Loading loadouts...</p>

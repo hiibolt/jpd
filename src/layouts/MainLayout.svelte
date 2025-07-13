@@ -16,11 +16,148 @@
 
     } from '../stores/state';
 	import { clearErrors, restartApplication, changePrimaryWeapon, changeSecondaryWeapon } from '../lib/api';
+	import { updateGridLayout } from '../lib/api';
 
+    import { onMount, afterUpdate, onDestroy } from 'svelte';
+
+    let leftColumnElement: HTMLElement;
+    let resizeObserver: ResizeObserver | null = null;
+    let layoutCalculationTimeout: number | null = null;
 
     $: currentGame = $games[$current_game_index] ?? { name: 'Game Not Found', categories: [], weapons: [] };
     $: loadouts = currentGame.categories?.at($current_category_index)?.loadouts ?? [];
     $: currentLoadout = loadouts?.at($current_loadout_index) ?? { name: 'Loadouts Not Found', primaries: [], secondaries: [], selected_primary: 0, selected_secondary: 0 };
+
+    // Debounced grid layout calculation
+    function scheduleGridLayoutCalculation() {
+        if (layoutCalculationTimeout) {
+            clearTimeout(layoutCalculationTimeout);
+        }
+        layoutCalculationTimeout = setTimeout(calculateAndSendGridLayout, 100);
+    }
+
+    // Calculate and send grid layout to backend when loadouts change
+    $: if (leftColumnElement && loadouts.length > 0) {
+        scheduleGridLayoutCalculation();
+    }
+
+    function calculateAndSendGridLayout() {
+        // Look for the loadout grid within the active category
+        const activeCategory = leftColumnElement?.querySelector('.category-card.active');
+        const loadoutGrid = activeCategory?.querySelector('.category-loadouts');
+        
+        if (!loadoutGrid) {
+            console.log('No loadout grid found, using default');
+            updateGridLayout(4);
+            return;
+        }
+
+        // Wait for next frame to ensure layout is complete
+        requestAnimationFrame(() => {
+            const loadoutCards = Array.from(loadoutGrid.querySelectorAll('.loadout-card'));
+            
+            if (loadoutCards.length === 0) {
+                console.log('No loadout cards found, using default');
+                updateGridLayout(4);
+                return;
+            }
+
+            let loadoutsPerRow = 1;
+
+            if (loadoutCards.length === 1) {
+                loadoutsPerRow = 1;
+            } else {
+                // Get computed style for the container
+                const gridStyle = window.getComputedStyle(loadoutGrid);
+                
+                // Use a more robust method to determine grid layout
+                // Check if it's using flexbox
+                const isFlexbox = gridStyle.display === 'flex';
+                
+                if (isFlexbox) {
+                    // For flexbox with flex-wrap, determine row count by comparing Y positions
+                    const cardRects = loadoutCards.map(card => card.getBoundingClientRect());
+                    const firstRowY = cardRects[0].top;
+                    const tolerance = 5; // Allow small differences due to rounding
+                    
+                    // Count cards in the first row by checking Y position
+                    loadoutsPerRow = cardRects.filter(rect => 
+                        Math.abs(rect.top - firstRowY) <= tolerance
+                    ).length;
+                    
+                    // Fallback: if all cards appear to be on same row, calculate based on width
+                    if (loadoutsPerRow === loadoutCards.length && loadoutCards.length > 1) {
+                        const containerWidth = loadoutGrid.getBoundingClientRect().width;
+                        const cardWidth = cardRects[0].width;
+                        
+                        // Get actual gap from computed style
+                        const gap = parseFloat(gridStyle.gap) || parseFloat(gridStyle.columnGap) || 8;
+                        
+                        loadoutsPerRow = Math.max(1, Math.floor((containerWidth + gap) / (cardWidth + gap)));
+                    }
+                } else {
+                    // For CSS Grid, use grid-template-columns
+                    const gridColumns = gridStyle.gridTemplateColumns;
+                    if (gridColumns && gridColumns !== 'none') {
+                        // Count the number of columns defined
+                        loadoutsPerRow = gridColumns.split(' ').length;
+                    } else {
+                        // Fallback to position-based calculation
+                        const cardRects = loadoutCards.map(card => card.getBoundingClientRect());
+                        const firstRowY = cardRects[0].top;
+                        loadoutsPerRow = cardRects.filter(rect => 
+                            Math.abs(rect.top - firstRowY) <= 5
+                        ).length;
+                    }
+                }
+            }
+
+            // Clamp to reasonable bounds
+            loadoutsPerRow = Math.max(1, Math.min(loadoutsPerRow, 20));
+            
+            // Get computed style for debug logging
+            const gridStyle = window.getComputedStyle(loadoutGrid);
+            
+            console.log(`Calculated loadouts per row: ${loadoutsPerRow} (from ${loadoutCards.length} total loadouts)`);
+            console.log(`Grid display: ${gridStyle.display}, flex-wrap: ${gridStyle.flexWrap}`);
+            console.log(`Container width: ${loadoutGrid.getBoundingClientRect().width}px`);
+            
+            updateGridLayout(loadoutsPerRow);
+        });
+    }
+
+    onMount(() => {
+        // Set up ResizeObserver to recalculate when container size changes
+        if (typeof ResizeObserver !== 'undefined') {
+            resizeObserver = new ResizeObserver(() => {
+                scheduleGridLayoutCalculation();
+            });
+        }
+        
+        // Initial calculation with a small delay for rendering
+        setTimeout(calculateAndSendGridLayout, 150);
+    });
+
+    // Recalculate when the DOM updates (category/loadout changes)
+    afterUpdate(() => {
+        if (leftColumnElement && loadouts.length > 0) {
+            scheduleGridLayoutCalculation();
+        }
+    });
+
+    onDestroy(() => {
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+        }
+        if (layoutCalculationTimeout) {
+            clearTimeout(layoutCalculationTimeout);
+        }
+    });
+
+    // Observe the left column for size changes
+    $: if (leftColumnElement && resizeObserver) {
+        resizeObserver.observe(leftColumnElement);
+    }
 </script>
 
 <Background />
@@ -30,7 +167,7 @@
 
 	<div class="main-layout">
 		<!-- Loadouts -->
-		<div class="left-column card">
+		<div class="left-column card" bind:this={leftColumnElement}>
 		{#if $games.length > 0}
 			{#each $games as game, index}
 			<GameCard game={game} index={index} />

@@ -25,6 +25,18 @@ fn get_config(state: tauri::State<'_, AppState>) -> GlobalConfig {
     state.global_config.read_arc().clone()
 }
 #[tauri::command]
+fn update_grid_layout(
+    state: tauri::State<'_, AppState>,
+    loadouts_per_row: usize
+) -> Result<(), String> {
+    let mut grid_layout = state.grid_layout_info.write_arc();
+    grid_layout.loadouts_per_row = loadouts_per_row;
+    
+    println!("Updated grid layout: {} loadouts per row", loadouts_per_row);
+    
+    Ok(())
+}
+#[tauri::command]
 fn get_version(
     app: tauri::AppHandle
 ) -> String {
@@ -184,6 +196,12 @@ async fn change_loadout (
             if new_loadout_index < category.loadouts.len() {
                 state.current_loadout_index.store(new_loadout_index, std::sync::atomic::Ordering::Relaxed);
                 println!("Changed loadout to index {}", new_loadout_index);
+                
+                // Emit event for loadout change
+                let _ = state.events_channel_sender.send(AppEvent::SwitchedLoadout {
+                    loadout_ind: new_loadout_index,
+                });
+                
                 return Ok(new_loadout_index);
             }
         }
@@ -962,6 +980,8 @@ async fn setup(
         current_category_index: Arc::new(AtomicUsize::new(0)),
         current_loadout_index:  Arc::new(AtomicUsize::new(0)),
         current_weapon_index:   Arc::new(AtomicUsize::new(0)),
+        
+        grid_layout_info:       Arc::new(RwLock::new(Default::default())),
     };
     let state_cloned = state.clone();
 
@@ -997,7 +1017,8 @@ pub fn run() {
             set_weapon_config,
             start_channel_reads,
             submit_game_key,
-            reset_config_from_server
+            reset_config_from_server,
+            update_grid_layout
         ])
         .setup(|app| {
             let state = tauri::async_runtime::block_on(setup(app));
@@ -1016,4 +1037,43 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// Function for cycling through categories (used by INSERT key)
+fn cycle_category(state: &AppState) -> Result<usize, String> {
+    let current_game_index = state.current_game_index.load(std::sync::atomic::Ordering::Relaxed);
+    let current_category_index = state.current_category_index.load(std::sync::atomic::Ordering::Relaxed);
+
+    if let Some(game) = state.games.read_arc().get(current_game_index) {
+        let category_count = game.categories.as_ref().map(|c| c.len()).unwrap_or(0);
+        
+        if category_count == 0 {
+            return Err("No categories available".to_string());
+        }
+        
+        // Cycle to next category, wrapping around to 0 if at the end
+        let next_category_index = (current_category_index + 1) % category_count;
+        
+        state.current_category_index.store(next_category_index, std::sync::atomic::Ordering::Relaxed);
+        state.current_loadout_index.store(0, std::sync::atomic::Ordering::Relaxed); // Reset loadout to first
+        
+        println!("Cycled to category index {} (from {})", next_category_index, current_category_index);
+        
+        // Send events to update the frontend
+        if let Err(e) = state.events_channel_sender.send(AppEvent::SwitchedCategory {
+            category_ind: next_category_index,
+        }) {
+            eprintln!("Failed to send SwitchedCategory event: {}", e);
+        }
+        
+        if let Err(e) = state.events_channel_sender.send(AppEvent::SwitchedLoadout {
+            loadout_ind: 0,
+        }) {
+            eprintln!("Failed to send SwitchedLoadout event: {}", e);
+        }
+        
+        return Ok(next_category_index);
+    }
+
+    Err("No game selected".to_string())
 }

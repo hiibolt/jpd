@@ -317,6 +317,16 @@ unsafe extern "system" fn wnd_proc(
                         if let Err(e) = save_data(state) {
                             eprintln!("Failed to save data: {}", e);
                         }
+                    } else if keyboard.VKey as i32 == VK_LEFT || keyboard.VKey as i32 == VK_RIGHT ||
+                              keyboard.VKey as i32 == VK_UP || keyboard.VKey as i32 == VK_DOWN
+                    {
+                        // Handle arrow key navigation for weapon selection
+                        handle_arrow_key_navigation(state, keyboard.VKey as i32);
+                    } else if keyboard.VKey as i32 == VK_INSERT {
+                        // Handle INSERT key for category cycling
+                        if let Err(e) = crate::cycle_category(state) {
+                            eprintln!("Failed to cycle category: {}", e);
+                        }
                     }
                 }
             }
@@ -339,6 +349,114 @@ fn to_wstring(s: &str) -> Vec<u16> {
     use std::os::windows::ffi::OsStrExt;
     std::ffi::OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
 }
+
+fn handle_arrow_key_navigation(state: &AppState, key: i32) {
+    let current_game_index = state.current_game_index.load(Ordering::SeqCst);
+    let current_category_index = state.current_category_index.load(Ordering::SeqCst);
+    let current_loadout_index = state.current_loadout_index.load(Ordering::SeqCst);
+
+    let games = state.games.read_arc();
+    if let Some(game) = games.get(current_game_index) {
+        if let Some(category) = game.categories
+            .as_ref()
+            .and_then(|cats| cats.get(current_category_index))
+        {
+            let grid_layout = state.grid_layout_info.read_arc();
+            let total_loadouts = category.loadouts.len();
+            let per_row = grid_layout.loadouts_per_row;
+            
+            if let Some(new_index) = calculate_new_index(current_loadout_index, total_loadouts, per_row, key) {
+                drop(games);
+                drop(grid_layout);
+                
+                // Update the loadout selection
+                state.current_loadout_index.store(new_index, Ordering::SeqCst);
+                println!("Changed loadout to index {}", new_index);
+                
+                // Emit event for loadout change
+                if let Err(e) = state.events_channel_sender.send(AppEvent::SwitchedLoadout {
+                    loadout_ind: new_index,
+                }) {
+                    eprintln!("Failed to send event: {}", e);
+                }
+                
+                // Save the updated data
+                if let Err(e) = save_data(state) {
+                    eprintln!("Failed to save data: {}", e);
+                }
+            }
+        }
+    }
+}
+
+fn calculate_new_index(current_index: usize, total_items: usize, items_per_row: usize, key: i32) -> Option<usize> {
+    if total_items == 0 || items_per_row == 0 {
+        return None;
+    }
+    
+    let current_row = current_index / items_per_row;
+    let current_col = current_index % items_per_row;
+    let total_rows = (total_items + items_per_row - 1) / items_per_row;
+    
+    match key {
+        VK_LEFT => {
+            if current_col > 0 {
+                Some(current_index - 1)
+            } else if current_index > 0 {
+                // Wrap to end of previous row
+                Some(current_index - 1)
+            } else {
+                // Wrap to last item
+                Some(total_items - 1)
+            }
+        },
+        VK_RIGHT => {
+            if current_index + 1 < total_items {
+                Some(current_index + 1)
+            } else {
+                // Wrap to first item
+                Some(0)
+            }
+        },
+        VK_UP => {
+            if current_row > 0 {
+                let new_index = (current_row - 1) * items_per_row + current_col;
+                if new_index < total_items {
+                    Some(new_index)
+                } else {
+                    // If the target position doesn't exist, go to the last item in the previous row
+                    Some(current_row * items_per_row - 1)
+                }
+            } else {
+                // Wrap to bottom row, same column if possible
+                let target_row = total_rows - 1;
+                let new_index = target_row * items_per_row + current_col;
+                if new_index < total_items {
+                    Some(new_index)
+                } else {
+                    // Go to last item
+                    Some(total_items - 1)
+                }
+            }
+        },
+        VK_DOWN => {
+            if current_row + 1 < total_rows {
+                let new_index = (current_row + 1) * items_per_row + current_col;
+                if new_index < total_items {
+                    Some(new_index)
+                } else {
+                    // If the target position doesn't exist, go to the last item
+                    Some(total_items - 1)
+                }
+            } else {
+                // Wrap to top row, same column
+                Some(current_col)
+            }
+        },
+        _ => None,
+    }
+}
+
 pub fn main_recoil (
     state: AppState
 ) {

@@ -10,6 +10,19 @@ fn default_enabled() -> bool {
     true
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct GridLayoutInfo {
+    pub loadouts_per_row: usize,
+}
+
+impl Default for GridLayoutInfo {
+    fn default() -> Self {
+        Self {
+            loadouts_per_row: 4, // Default to 4 loadouts per row
+        }
+    }
+}
+
 pub struct LoadedGames {
     pub game_data: Vec<Game>,
 }
@@ -39,6 +52,12 @@ pub enum AppEvent {
     },
     SwitchedWeapon {
         weapon_ind: usize,
+    },
+    SwitchedLoadout {
+        loadout_ind: usize,
+    },
+    SwitchedCategory {
+        category_ind: usize,
     },
     StartedShooting {
         weapon_ind: usize
@@ -113,6 +132,8 @@ pub struct AppState {
     pub current_category_index: Arc<AtomicUsize>,
     pub current_loadout_index:  Arc<AtomicUsize>,
     pub current_weapon_index:   Arc<AtomicUsize>,
+
+    pub grid_layout_info: Arc<RwLock<GridLayoutInfo>>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SingleShotConfig {
