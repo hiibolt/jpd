@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{mpsc::{Sender, Receiver}, atomic::AtomicUsize};
 use std::sync::{Arc, atomic::AtomicBool};
+use std::time::Instant;
 
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
@@ -134,6 +135,9 @@ pub struct AppState {
     pub current_weapon_index:   Arc<AtomicUsize>,
 
     pub grid_layout_info: Arc<RwLock<GridLayoutInfo>>,
+    
+    // Track last shot time per weapon ID for SingleFire trigger cap
+    pub last_shot_times: Arc<RwLock<HashMap<String, Instant>>>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SingleShotConfig {

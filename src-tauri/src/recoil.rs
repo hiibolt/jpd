@@ -1,5 +1,5 @@
 extern crate winapi;
-use std::{mem, thread, time::Duration};
+use std::{mem, thread, time::{Duration, Instant}};
 use std::sync::atomic::Ordering;
 use winapi::um::winuser::*;
 
@@ -187,7 +187,18 @@ pub fn handle_hold_lmb (
                 let release_delay: Duration = Duration::from_millis(config.release_delay_ms as u64);
 
                 while state.left_hold_active.load(Ordering::SeqCst) && !(global_config.keybinds.require_right_hold && !state.right_hold_active.load(Ordering::SeqCst)) {
+                    // Check if weapon is ready to fire (respecting trigger cap)
+                    if !can_fire_single_fire_weapon(&state, &weapon_id, config.trigger_delay_ms, config.recoil_completion_ms) {
+                        // Weapon is still in trigger cap period, wait a bit and check again
+                        std::thread::sleep(Duration::from_millis(10));
+                        continue;
+                    }
+                    
+                    // Weapon is ready to fire
                     press_key(global_config.keybinds.alternative_fire);
+                    
+                    // Record that we fired a shot (for trigger cap tracking)
+                    record_shot_fired(&state, &weapon_id);
                     
                     // Only apply recoil control if enabled
                     if config.enabled {
@@ -221,7 +232,8 @@ pub fn handle_hold_lmb (
                     // Check if the weapon has been changed
                     let new_weapon_ind = state.current_weapon_index.load(Ordering::SeqCst);
                     if new_weapon_ind != weapon_ind {
-                        // If the weapon has changed, exit the loop
+                        // If the weapon has changed, clear timing and exit the loop
+                        clear_shot_timing(&state, &weapon_id);
                         println!("Weapon changed while firing, exiting hold loop.");
                         continue 'outer;
                     }
@@ -266,5 +278,51 @@ pub fn handle_hold_lmb (
         if let Err(e) = state.events_channel_sender.send(AppEvent::StoppedShooting) {
             eprintln!("Failed to send event: {}", e);
         }
+    }
+}
+
+/// Check if enough time has passed since the last shot for SingleFire weapons
+/// Returns true if the weapon is ready to fire, false if still in trigger cap period
+fn can_fire_single_fire_weapon(
+    state: &AppState,
+    weapon_id: &str,
+    trigger_delay_ms: u32,
+    recoil_completion_ms: u32,
+) -> bool {
+    let trigger_cap_duration = Duration::from_millis((trigger_delay_ms + recoil_completion_ms) as u64);
+    let now = Instant::now();
+    
+    let last_shot_times = state.last_shot_times.read();
+    
+    if let Some(last_shot_time) = last_shot_times.get(weapon_id) {
+        let time_since_last_shot = now.duration_since(*last_shot_time);
+        if time_since_last_shot < trigger_cap_duration {
+            let remaining_ms = (trigger_cap_duration - time_since_last_shot).as_millis();
+            println!("SingleFire weapon '{}' still in trigger cap, {}ms remaining", weapon_id, remaining_ms);
+            return false;
+        }
+    }
+    
+    true
+}
+
+/// Record that a shot was fired for trigger cap tracking
+fn record_shot_fired(state: &AppState, weapon_id: &str) {
+    let mut last_shot_times = state.last_shot_times.write();
+    last_shot_times.insert(weapon_id.to_string(), Instant::now());
+    println!("Recorded shot fired for weapon '{}'", weapon_id);
+}
+
+/// Clear shot timing for a weapon (called when switching weapons)
+fn clear_shot_timing(state: &AppState, weapon_id: &str) {
+    let mut last_shot_times = state.last_shot_times.write();
+    last_shot_times.remove(weapon_id);
+    println!("Cleared shot timing for weapon '{}'", weapon_id);
+}
+
+/// Public function to clear shot timing for the current weapon when switching
+pub fn clear_current_weapon_timing(state: &AppState) {
+    if let Ok(weapon_id) = crate::get_weapon_id(state) {
+        clear_shot_timing(state, &weapon_id);
     }
 }

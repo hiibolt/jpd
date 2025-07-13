@@ -1,7 +1,7 @@
 extern crate winapi;
 
 use crate::{get_weapon_id, save_data};
-use crate::recoil::handle_hold_lmb;
+use crate::recoil::{handle_hold_lmb, clear_current_weapon_timing};
 use crate::types::{AppEvent, AppState, Weapon};
 
 use std::time::Duration;
@@ -248,6 +248,10 @@ unsafe extern "system" fn wnd_proc(
 
                     if keyboard.VKey == primary_key {
                         println!("Switching to weapon 1");
+                        
+                        // Clear shot timing for trigger cap when switching weapons
+                        clear_current_weapon_timing(state);
+                        
                         state.current_weapon_index.store(0, Ordering::SeqCst);
 
                         // Emit an event that the weapon has been switched
@@ -258,6 +262,10 @@ unsafe extern "system" fn wnd_proc(
                         }
                     } else if keyboard.VKey == secondary_key {
                         println!("Switching to weapon 2");
+                        
+                        // Clear shot timing for trigger cap when switching weapons
+                        clear_current_weapon_timing(state);
+                        
                         state.current_weapon_index.store(1, Ordering::SeqCst);
 
                         // Emit an event that the weapon has been switched

@@ -982,6 +982,7 @@ async fn setup(
         current_weapon_index:   Arc::new(AtomicUsize::new(0)),
         
         grid_layout_info:       Arc::new(RwLock::new(Default::default())),
+        last_shot_times:        Arc::new(RwLock::new(HashMap::new())),
     };
     let state_cloned = state.clone();
 
