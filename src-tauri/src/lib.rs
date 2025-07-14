@@ -509,7 +509,11 @@ fn get_weapon_id (
         .ok_or(anyhow!("Loadout index {} not found in category `{}` in game `{}`", current_loadout_index, current_category.name, current_game.name))?;
 
     // Get the current weapon index (0 = primary, 1 = secondary)
-    let weapon_ind = state.current_weapon_index.load(Ordering::SeqCst);
+    let weapon_ind = if current_loadout.secondaries.is_empty() {
+        0
+    } else {
+        state.current_weapon_index.load(Ordering::SeqCst)
+    };
     let weapon_id = if weapon_ind == 0 {
         // Primary weapon
         if current_loadout.primaries.is_empty() {
