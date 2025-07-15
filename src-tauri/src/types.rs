@@ -79,7 +79,7 @@ impl Default for KeybindConfig {
             require_right_hold: true,
             primary_weapon: '1',
             secondary_weapon: '2',
-            alternative_fire: '3',
+            alternative_fire: 'm',
         }
     }
 }
