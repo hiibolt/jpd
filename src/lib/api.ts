@@ -149,6 +149,11 @@ export function changeAcogVerticalMultiplier(newMultiplier: number) {
         .then((new_config) => config.set(new_config as any))
         .catch((error) => handleError('Change to ACOG vertical multiplier failed', error));
 }
+export function changeScrollWheelWeaponSwap(enabled: boolean) {
+    invoke('change_scroll_wheel_weapon_swap', { enabled })
+        .then((new_config) => config.set(new_config as any))
+        .catch((error) => handleError('Change to scroll wheel weapon swap failed', error));
+}
 export function changeSetting(setting: string, value: string | boolean | number) {
     invoke('change_setting', { setting, value })
         .then((new_config) => config.set(new_config as any))

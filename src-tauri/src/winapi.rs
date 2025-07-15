@@ -231,9 +231,12 @@ unsafe extern "system" fn wnd_proc(
                         
                         println!(":3 [WHEEL] {}", if scroll_up { "UP" } else { "DOWN" });
                         
-                        // Cycle weapon type based on scroll direction
-                        if let Err(e) = crate::cycle_weapon_type(state, scroll_up) {
-                            eprintln!("Failed to cycle weapon type: {}", e);
+                        // Check if scroll wheel weapon swap is enabled before cycling
+                        if state.global_config.read_arc().mouse_config.scroll_wheel_weapon_swap {
+                            // Cycle weapon type based on scroll direction
+                            if let Err(e) = crate::cycle_weapon_type(state, scroll_up) {
+                                eprintln!("Failed to cycle weapon type: {}", e);
+                            }
                         }
                     }
                 }

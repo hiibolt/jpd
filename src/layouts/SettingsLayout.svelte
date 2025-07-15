@@ -4,7 +4,7 @@
     import Background from '../components/Background.svelte';
     import ConfigGroup from '../components/ConfigGroup.svelte';
     import { config } from '../stores/state';
-    import { resetConfigFromServer, changeHorizontalMultiplier, changeVerticalMultiplier, changeAcogHorizontalMultiplier, changeAcogVerticalMultiplier } from '../lib/api';
+    import { resetConfigFromServer, changeHorizontalMultiplier, changeVerticalMultiplier, changeAcogHorizontalMultiplier, changeAcogVerticalMultiplier, changeScrollWheelWeaponSwap } from '../lib/api';
     import StatField from '../components/StatField.svelte';
     import Banner from '../components/Banner.svelte';
 
@@ -74,6 +74,18 @@
                         type="number"
                         onChange={(v) => changeAcogHorizontalMultiplier(v)}
                     />
+                </div>
+                
+                <div class="checkbox-field">
+                    <label class="checkbox-label">
+                        <input 
+                            type="checkbox" 
+                            bind:checked={$config.mouse_config.scroll_wheel_weapon_swap}
+                            on:change={(e) => changeScrollWheelWeaponSwap((e.target as HTMLInputElement).checked)}
+                        />
+                        <span class="checkbox-text">Enable Scroll Wheel Weapon Swap</span>
+                    </label>
+                    <p class="checkbox-description">Allow mouse wheel to cycle between primary and secondary weapons</p>
                 </div>
             </div>
             
@@ -300,6 +312,42 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.checkbox-field {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  gap: 0.75rem;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.checkbox-text {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--fg);
+}
+
+.checkbox-description {
+  font-size: 0.875rem;
+  color: var(--fg);
+  opacity: 0.7;
+  margin: 0.5rem 0 0 0;
+  line-height: 1.4;
 }
 
 /* Custom scrollbar styling for left column */

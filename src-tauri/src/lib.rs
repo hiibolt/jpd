@@ -180,6 +180,17 @@ async fn change_acog_vertical_multiplier (
     Err(format!("Invalid ACOG vertical multiplier: {}", new_multiplier))
 }
 #[tauri::command]
+async fn change_scroll_wheel_weapon_swap (
+    state: tauri::State<'_, AppState>,
+    enabled: bool
+) -> Result<GlobalConfig, String> {
+    state.global_config.write_arc().mouse_config.scroll_wheel_weapon_swap = enabled;
+    save_data(&state).map_err(|e| format!("Failed to save game data: {}", e))?;
+    println!("Changed scroll wheel weapon swap to {}", enabled);
+
+    Ok(state.global_config.read_arc().clone())
+}
+#[tauri::command]
 async fn change_loadout (
     state: tauri::State<'_, AppState>,
     new_loadout_index: usize
@@ -1023,6 +1034,7 @@ pub fn run() {
             change_vertical_multiplier,
             change_acog_horizontal_multiplier,
             change_acog_vertical_multiplier,
+            change_scroll_wheel_weapon_swap,
             change_setting,
 
             load_games_wrapper,

@@ -12,6 +12,7 @@ type MouseConfig = {
     vertical_multiplier: number;
     acog_horizontal_multiplier: number;
     acog_vertical_multiplier: number;
+    scroll_wheel_weapon_swap: boolean;
 };
 export type GlobalConfig = {
     keybinds: KeybindConfig;
@@ -96,6 +97,7 @@ export const config = writable<GlobalConfig>({
         vertical_multiplier: 1.0,
         acog_horizontal_multiplier: 2.5,
         acog_vertical_multiplier: 2.5,
+        scroll_wheel_weapon_swap: true,
     },
 });
 export const current_game_index = writable(0);
