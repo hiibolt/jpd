@@ -131,7 +131,7 @@
     }
     
     .status-valid {
-        color: #d4338c;
+        color: var(--accent);
     }
     
     .status-invalid,

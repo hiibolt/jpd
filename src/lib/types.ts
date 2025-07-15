@@ -38,6 +38,9 @@ export interface Config {
         acog_vertical_multiplier: number;
         scroll_wheel_weapon_swap: boolean;
     };
+    theme_config: {
+        accent_color: string;
+    };
 }
 
 export interface KeybindConfigOption {

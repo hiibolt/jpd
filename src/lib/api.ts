@@ -238,3 +238,24 @@ export async function exitApp(): Promise<void> {
         handleError('Exit app failed', error);
     }
 }
+
+export function changeAccentColor(newColor: string) {
+    // For now, store accent color in localStorage and update the config store
+    // This can be changed to a backend call when backend support is added
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('accent_color', newColor);
+        }
+        
+        // Update the config store
+        config.update(currentConfig => ({
+            ...currentConfig,
+            theme_config: {
+                ...currentConfig.theme_config,
+                accent_color: newColor
+            }
+        }));
+    } catch (error) {
+        handleError('Failed to change accent color', error);
+    }
+}
