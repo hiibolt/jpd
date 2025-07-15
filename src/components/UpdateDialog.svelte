@@ -42,7 +42,7 @@
     <div class="update-overlay">
         <div class="update-dialog">
             <div class="update-header">
-                <h2>🔄 Update Available</h2>
+                <h2>Update Available!</h2>
             </div>
             
             <div class="update-content">
@@ -116,7 +116,7 @@
 
 .update-header h2 {
     margin: 0;
-    color: #0077ff;
+    color: var(--accent);
     font-size: 1.5rem;
     font-weight: 600;
 }
@@ -165,12 +165,12 @@
 }
 
 .update-btn.confirm {
-    background-color: #0077ff;
+    background-color: var(--accent);
     color: white;
 }
 
 .update-btn.confirm:hover:not(:disabled) {
-    background-color: #0056cc;
+    background-color: var(--accent);
     transform: translateY(-1px);
 }
 
