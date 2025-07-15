@@ -6,7 +6,7 @@
     import { config } from '../stores/state';
     import { resetConfigFromServer, changeHorizontalMultiplier, changeVerticalMultiplier, changeAcogHorizontalMultiplier, changeAcogVerticalMultiplier, changeScrollWheelWeaponSwap } from '../lib/api';
     import StatField from '../components/StatField.svelte';
-    import Banner from '../components/Banner.svelte';
+	import { open } from '@tauri-apps/plugin-shell';
 
     let keybindConfigOptions: any[] = [
         { label: 'Primary Weapon', description: 'Switches to primary weapon', type: 'char', key: 'primary_weapon', value: $config.keybinds.primary_weapon },
@@ -114,14 +114,14 @@
         </div>
 
         <!-- Active Loadout -->
-        <div class="right-column">
+        <div class="right-column">	
             <div class="card upper-right-card">
                 <h3>Settings</h3>
                 <p>
                     Manage your settings and preferences.
                     <br>
                     <br>
-                    Need help? Reach out to JPD staff in the <a href="https://discord.gg/pulldown">Discord</a> and open a support ticket - we're here to help you play best.
+                    Need help? Reach out to JPD staff in the <button class="link-button" on:click={() => open("https://discord.gg/pulldown")}>Discord</button> and open a support ticket - we're here to help you play best.
                 </p>
 				<div class="username">
 					Maintained by <b>@hiibolt</b> with &lt;3
@@ -152,9 +152,22 @@
   }
 }
 
-a {
+.link-button {
+  align-items: normal;
+  border-style: none;
+  box-sizing: content-box;
+  cursor: pointer;
+  display: inline;
+  font: inherit;
+  height: auto;
+  padding: 0;
+  perspective-origin: 0 0;
+  text-align: start;
+  transform-origin: 0 0;
+  width: auto;
+  background: none;
+  border: none;
   color: var(--accent);
-  text-decoration: none;
 }
 
 .username {

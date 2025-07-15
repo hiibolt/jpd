@@ -168,77 +168,76 @@
 	<div class="main-layout">
 		<!-- Loadouts -->
 		<div class="left-column card" bind:this={leftColumnElement}>
-		{#if $games.length > 0}
-			{#each $games as game, index}
-			<GameCard game={game} index={index} />
-			{/each}
-		{:else}
-			<h2>Loading Games...</h2>
-		{/if}
-		{#if $errors.length > 0}
-			<div class="card">
-				<div class="errors-header">
-					<h3>Errors</h3>
-					<div class="error-buttons">
-						<button class="error-btn clear-btn" on:click={() => {
-							clearErrors();
-							console.log('Errors cleared');
-						}}>Clear</button>
-						<button class="error-btn restart-btn" on:click={() => {
-							console.log('Restarting application...');
-							restartApplication();
-						}}>Restart</button>
-					</div>
-				</div>
-				<ul>
-					{#each $errors as error}
-						<div class="card error-item">
-							<li>{error}</li>
+			{#if $games.length > 0}
+				{#each $games as game, index}
+					<GameCard game={game} index={index} />
+				{/each}
+			{:else}
+				<h2>Loading Games...</h2>
+			{/if}
+			{#if $errors.length > 0}
+				<div class="card">
+					<div class="errors-header">
+						<h3>Errors</h3>
+						<div class="error-buttons">
+							<button class="error-btn clear-btn" on:click={() => {
+								clearErrors();
+								console.log('Errors cleared');
+							}}>Clear</button>
+							<button class="error-btn restart-btn" on:click={() => {
+								console.log('Restarting application...');
+								restartApplication();
+							}}>Restart</button>
 						</div>
-					{/each}
-				</ul>
-			</div>
-		{/if}
+					</div>
+					<ul>
+						{#each $errors as error}
+							<div class="card error-item">
+								<li>{error}</li>
+							</div>
+						{/each}
+					</ul>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Active Loadout -->
 		<div class="right-column">
-		
-		<div class="card upper-right-card">
-		<h3>{currentLoadout.name}</h3>
-		
-		<!-- Primary Weapons -->
-		<div class="weapon-section">
-			<h4 class="weapon-section-label">Primary Weapons</h4>
-			{#if currentLoadout.primaries.length > 0}
-				<div class="weapons-grid">
-					{#each currentLoadout.primaries as id, i}
-					<div 
-						class="weapon-selection {i === currentLoadout.selected_primary ? 'selected' : ''}"
-						on:click={() => changePrimaryWeapon(i)}
-						role="button"
-						tabindex="0"
-						on:keydown={(e) => e.key === 'Enter' && changePrimaryWeapon(i)}
-					>
-						<WeaponCard
-							weaponId={id}
-							weapon={(currentGame.weapons ?? {})[id] ?? null}
-							active={$current_weapon_index === 0 && i === currentLoadout.selected_primary}
-							shooting={$shooting && $current_weapon_index === 0 && i === currentLoadout.selected_primary}
-						/>
-					</div>
-					{/each}
+			<div class="card upper-right-card">
+				<h3>{currentLoadout.name}</h3>
+				
+				<!-- Primary Weapons -->
+				<div class="weapon-section">
+					<h4 class="weapon-section-label">Primary Weapons</h4>
+					{#if currentLoadout.primaries.length > 0}
+						<div class="weapons-grid">
+							{#each currentLoadout.primaries as id, i}
+							<div 
+								class="weapon-selection {i === currentLoadout.selected_primary ? 'selected' : ''}"
+								on:click={() => changePrimaryWeapon(i)}
+								role="button"
+								tabindex="0"
+								on:keydown={(e) => e.key === 'Enter' && changePrimaryWeapon(i)}
+							>
+								<WeaponCard
+								weaponId={id}
+								weapon={(currentGame.weapons ?? {})[id] ?? null}
+								active={$current_weapon_index === 0 && i === currentLoadout.selected_primary}
+								shooting={$shooting && $current_weapon_index === 0 && i === currentLoadout.selected_primary}
+								/>
+							</div>
+							{/each}
+						</div>
+					{:else}
+						<p>No primary weapons</p>
+					{/if}
 				</div>
-			{:else}
-				<p>No primary weapons</p>
-			{/if}
-		</div>
 
-		<!-- Secondary Weapons -->
-		<div class="weapon-section">
-			<h4 class="weapon-section-label">Secondary Weapons</h4>
-			{#if currentLoadout.secondaries.length > 0}
-				<div class="weapons-grid">
+				<!-- Secondary Weapons -->
+				<div class="weapon-section">
+				<h4 class="weapon-section-label">Secondary Weapons</h4>
+				{#if currentLoadout.secondaries.length > 0}
+					<div class="weapons-grid">
 					{#each currentLoadout.secondaries as id, i}
 					<div 
 						class="weapon-selection {i === currentLoadout.selected_secondary ? 'selected' : ''}"
@@ -248,20 +247,20 @@
 						on:keydown={(e) => e.key === 'Enter' && changeSecondaryWeapon(i)}
 					>
 						<WeaponCard
-							weaponId={id}
-							weapon={(currentGame.weapons ?? {})[id] ?? null}
-							active={$current_weapon_index === 1 && i === currentLoadout.selected_secondary}
-							shooting={$shooting && $current_weapon_index === 1 && i === currentLoadout.selected_secondary}
+						weaponId={id}
+						weapon={(currentGame.weapons ?? {})[id] ?? null}
+						active={$current_weapon_index === 1 && i === currentLoadout.selected_secondary}
+						shooting={$shooting && $current_weapon_index === 1 && i === currentLoadout.selected_secondary}
 						/>
 					</div>
 					{/each}
+					</div>
+				{:else}
+					<p>No secondary weapons</p>
+				{/if}
 				</div>
-			{:else}
-				<p>No secondary weapons</p>
-			{/if}
-		</div>
-		</div>
-		<ButtonPanel currentPage="home"/>
+			</div>
+			<ButtonPanel currentPage="home"/>
 		</div>
 	</div>
 </main>
@@ -317,7 +316,7 @@ main.container {
 .right-column {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 0;
   gap: 1rem;
 }
 
@@ -326,7 +325,7 @@ main.container {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  min-height: 0; /* Allow flex item to shrink below content size */
+   /* Allow flex item to shrink below content size */
   max-height: 100%; /* Ensure it doesn't exceed container */
   height: 0; /* Force the flex item to use flex sizing */
 }
