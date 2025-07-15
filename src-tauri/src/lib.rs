@@ -953,14 +953,54 @@ async fn update(app: tauri::AppHandle) -> tauri_plugin_updater::Result<()> {
 
   Ok(())
 }
+
+#[tauri::command]
+async fn check_for_updates(app: tauri::AppHandle) -> Result<bool, String> {
+    match app.updater() {
+        Ok(updater) => {
+            match updater.check().await {
+                Ok(Some(_update)) => {
+                    println!("Update available");
+                    Ok(true)
+                },
+                Ok(None) => {
+                    println!("No update available");
+                    Ok(false)
+                },
+                Err(e) => {
+                    eprintln!("Failed to check for updates: {}", e);
+                    Err(format!("Failed to check for updates: {}", e))
+                }
+            }
+        },
+        Err(e) => {
+            eprintln!("Failed to initialize updater: {}", e);
+            Err(format!("Failed to initialize updater: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+async fn perform_update(app: tauri::AppHandle) -> Result<(), String> {
+    match update(app).await {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            eprintln!("Update failed: {}", e);
+            Err(format!("Update failed: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+async fn exit_app(app: tauri::AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
+}
 async fn setup(
     app: &mut App
 ) -> AppState {
-    // First, check for updates
-    let app_handle_cloned = app.handle().clone();
-    tauri::async_runtime::spawn(async move {
-        update(app_handle_cloned).await.expect("Failed to run updater!");
-    });
+    // Note: We no longer automatically check for updates here
+    // Updates will be checked manually via the check_for_updates command
 
     // Get the config directory path
     let config_dir_path = Arc::new(app.path().app_config_dir()
@@ -1024,6 +1064,9 @@ pub fn run() {
             get_config,
             get_version,
             restart_app,
+            check_for_updates,
+            perform_update,
+            exit_app,
 
             change_game,
             change_category,

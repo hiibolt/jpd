@@ -212,3 +212,29 @@ export async function updateGridLayout(loadoutsPerRow: number) {
         handleError('Update grid layout failed', error);
     }
 }
+
+export async function checkForUpdates(): Promise<boolean> {
+    try {
+        return await invoke('check_for_updates') as boolean;
+    } catch (error) {
+        handleError('Check for updates failed', error);
+        return false;
+    }
+}
+
+export async function performUpdate(): Promise<void> {
+    try {
+        await invoke('perform_update');
+    } catch (error) {
+        handleError('Update failed', error);
+        throw error;
+    }
+}
+
+export async function exitApp(): Promise<void> {
+    try {
+        await invoke('exit_app');
+    } catch (error) {
+        handleError('Exit app failed', error);
+    }
+}
