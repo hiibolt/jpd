@@ -329,7 +329,6 @@ h3 {
 .sensitivity-fields {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
 }
 
 .checkbox-field {
