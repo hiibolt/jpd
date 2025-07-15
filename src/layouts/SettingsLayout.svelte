@@ -121,10 +121,10 @@
                     Manage your settings and preferences.
                     <br>
                     <br>
-                    Need help? Reach out to CLC and open a support ticket - we're here to help you play best.
+                    Need help? Reach out to JPD staff in the <a href="https://discord.gg/pulldown">Discord</a> and open a support ticket - we're here to help you play best.
                 </p>
 				<div class="username">
-					Maintained by <b>@hiibolt</b> with 🩵
+					Maintained by <b>@hiibolt</b> with &lt;3
 				</div>
             </div>
 
@@ -138,7 +138,7 @@
   --fg: #222;
   --card-bg: rgba(255, 255, 255, 0.8);
   --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-  --accent: #0077ff;
+  --accent: #bf0f70;
   --shooting: #e53935;
   --not-shooting: #333;
   backdrop-filter: blur(20px);
@@ -150,6 +150,11 @@
     --card-bg: rgba(30, 30, 30, 0.8);
     --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
   }
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
 }
 
 .username {
@@ -278,7 +283,7 @@ h3 {
 }
 
 .reset-btn.primary:hover:not(:disabled) {
-  background-color: #0056cc;
+  background-color: var(--accent);
 }
 
 .reset-btn.danger {
@@ -361,20 +366,20 @@ h3 {
 }
 
 .left-column::-webkit-scrollbar-thumb {
-  background: var(--accent, #0077ff);
+  background: var(--accent, var(--accent));
   border-radius: 4px;
   opacity: 0.7;
 }
 
 .left-column::-webkit-scrollbar-thumb:hover {
-  background: #0056cc;
+  background: var(--accent);
   opacity: 1;
 }
 
 /* Firefox scrollbar styling */
 .left-column {
   scrollbar-width: thin;
-  scrollbar-color: var(--accent, #0077ff) rgba(255, 255, 255, 0.1);
+  scrollbar-color: var(--accent, var(--accent)) rgba(255, 255, 255, 0.1);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -383,7 +388,7 @@ h3 {
   }
   
   .left-column {
-    scrollbar-color: var(--accent, #0077ff) rgba(255, 255, 255, 0.05);
+    scrollbar-color: var(--accent, var(--accent)) rgba(255, 255, 255, 0.05);
   }
 }
 </style>

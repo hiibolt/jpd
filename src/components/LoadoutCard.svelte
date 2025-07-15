@@ -31,7 +31,7 @@
         transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
     }
     .loadout-card.active {
-        border-color: #007acc;
+        border-color: var(--accent);
     }
     .loadout-card:hover {
         transform: translateY(-2px);

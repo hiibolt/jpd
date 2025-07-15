@@ -6,7 +6,7 @@
 
 <div class="account-panel card">
     <div class="username">
-        Product of <b>CLC Services</b>
+        Product of <b>JPD</b>
     </div>
     <div class="button-group">
         {#if currentPage !== 'home'}

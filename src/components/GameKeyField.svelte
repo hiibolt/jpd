@@ -131,7 +131,7 @@
     }
     
     .status-valid {
-        color: #4ade80;
+        color: #d4338c;
     }
     
     .status-invalid,
