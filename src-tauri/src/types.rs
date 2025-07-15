@@ -91,6 +91,8 @@ pub struct MouseConfig {
     pub acog_horizontal_multiplier: f32,
     #[serde(default)]
     pub acog_vertical_multiplier: f32,
+    #[serde(default = "default_enabled")]
+    pub scroll_wheel_weapon_swap: bool,
 }
 impl Default for MouseConfig {
     fn default() -> Self {
@@ -99,6 +101,7 @@ impl Default for MouseConfig {
             vertical_multiplier: 1.0,
             acog_horizontal_multiplier: 1.0,
             acog_vertical_multiplier: 1.0,
+            scroll_wheel_weapon_swap: true,
         }
     }
 }

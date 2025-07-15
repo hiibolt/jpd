@@ -271,7 +271,7 @@
   --fg: #222;
   --card-bg: rgba(255, 255, 255, 0.8);
   --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-  --accent: #0077ff;
+  --accent: #bf0f70;
   --shooting: #e53935;
   --not-shooting: #333;
   backdrop-filter: blur(20px);
@@ -419,21 +419,21 @@ h3 {
 }
 
 .weapon-selection:hover {
-  border-color: var(--accent, #007acc);
+  border-color: var(--accent, var(--accent));
   background: rgba(255, 255, 255, 0.05);
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .weapon-selection.selected {
-  border-color: var(--accent, #007acc);
+  border-color: var(--accent, var(--accent));
   background: rgba(0, 122, 204, 0.1);
   box-shadow: 0 0 15px rgba(0, 122, 204, 0.3);
 }
 
 .weapon-selection:focus {
   outline: none;
-  border-color: var(--accent, #007acc);
+  border-color: var(--accent, var(--accent));
   box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.2);
 }
 
@@ -448,7 +448,7 @@ h3 {
 }
 
 .upper-right-card::-webkit-scrollbar-thumb {
-  background: var(--accent, #0077ff);
+  background: var(--accent, var(--accent));
   border-radius: 4px;
   opacity: 0.7;
 }
@@ -462,7 +462,7 @@ h3 {
 @-moz-document url-prefix() {
   .upper-right-card {
     scrollbar-width: thin;
-    scrollbar-color: var(--accent, #0077ff) rgba(255, 255, 255, 0.1);
+    scrollbar-color: var(--accent, var(--accent)) rgba(255, 255, 255, 0.1);
   }
 }
 
@@ -473,7 +473,7 @@ h3 {
   
   @-moz-document url-prefix() {
     .upper-right-card {
-      scrollbar-color: var(--accent, #0077ff) rgba(255, 255, 255, 0.05);
+      scrollbar-color: var(--accent, var(--accent)) rgba(255, 255, 255, 0.05);
     }
   }
 }

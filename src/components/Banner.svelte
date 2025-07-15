@@ -1,5 +1,5 @@
 <h2 class="banner"><i>Just Pull Down</i></h2>
-<h3 class="sub-banner"><i>CLC Services - Maintained by @hiibolt</i></h3>
+<h3 class="sub-banner"><i>Property of JPD - Maintained by @hiibolt</i></h3>
 
 <style>
     .banner {

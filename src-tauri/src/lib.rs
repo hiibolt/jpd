@@ -5,7 +5,6 @@ mod types;
 use parking_lot::{Mutex, RwLock};
 use tauri::{ipc::Channel, App, Builder, Manager};
 use tauri_plugin_updater::UpdaterExt;
-use window_vibrancy::apply_acrylic;
 use anyhow::{anyhow, Result};
 
 use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc}, collections::HashMap};
@@ -179,6 +178,17 @@ async fn change_acog_vertical_multiplier (
     }
 
     Err(format!("Invalid ACOG vertical multiplier: {}", new_multiplier))
+}
+#[tauri::command]
+async fn change_scroll_wheel_weapon_swap (
+    state: tauri::State<'_, AppState>,
+    enabled: bool
+) -> Result<GlobalConfig, String> {
+    state.global_config.write_arc().mouse_config.scroll_wheel_weapon_swap = enabled;
+    save_data(&state).map_err(|e| format!("Failed to save game data: {}", e))?;
+    println!("Changed scroll wheel weapon swap to {}", enabled);
+
+    Ok(state.global_config.read_arc().clone())
 }
 #[tauri::command]
 async fn change_loadout (
@@ -943,14 +953,54 @@ async fn update(app: tauri::AppHandle) -> tauri_plugin_updater::Result<()> {
 
   Ok(())
 }
+
+#[tauri::command]
+async fn check_for_updates(app: tauri::AppHandle) -> Result<bool, String> {
+    match app.updater() {
+        Ok(updater) => {
+            match updater.check().await {
+                Ok(Some(_update)) => {
+                    println!("Update available");
+                    Ok(true)
+                },
+                Ok(None) => {
+                    println!("No update available");
+                    Ok(false)
+                },
+                Err(e) => {
+                    eprintln!("Failed to check for updates: {}", e);
+                    Err(format!("Failed to check for updates: {}", e))
+                }
+            }
+        },
+        Err(e) => {
+            eprintln!("Failed to initialize updater: {}", e);
+            Err(format!("Failed to initialize updater: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+async fn perform_update(app: tauri::AppHandle) -> Result<(), String> {
+    match update(app).await {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            eprintln!("Update failed: {}", e);
+            Err(format!("Update failed: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+async fn exit_app(app: tauri::AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
+}
 async fn setup(
     app: &mut App
 ) -> AppState {
-    // First, check for updates
-    let app_handle_cloned = app.handle().clone();
-    tauri::async_runtime::spawn(async move {
-        update(app_handle_cloned).await.expect("Failed to run updater!");
-    });
+    // Note: We no longer automatically check for updates here
+    // Updates will be checked manually via the check_for_updates command
 
     // Get the config directory path
     let config_dir_path = Arc::new(app.path().app_config_dir()
@@ -1014,6 +1064,9 @@ pub fn run() {
             get_config,
             get_version,
             restart_app,
+            check_for_updates,
+            perform_update,
+            exit_app,
 
             change_game,
             change_category,
@@ -1024,6 +1077,7 @@ pub fn run() {
             change_vertical_multiplier,
             change_acog_horizontal_multiplier,
             change_acog_vertical_multiplier,
+            change_scroll_wheel_weapon_swap,
             change_setting,
 
             load_games_wrapper,
@@ -1035,13 +1089,6 @@ pub fn run() {
         ])
         .setup(|app| {
             let state = tauri::async_runtime::block_on(setup(app));
-            let window = app.get_webview_window("main").expect("Failed to get main window");
-
-            // Apply vibrancy effect on Windows
-            apply_acrylic(
-                &window,
-                Some((18, 18, 18, 125))
-            ).expect("Unsupported platform! 'apply_blur' is only supported on Windows");
 
             // Register the application state
             app.manage(state);
