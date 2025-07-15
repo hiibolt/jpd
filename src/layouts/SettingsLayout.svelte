@@ -3,46 +3,89 @@
     import ButtonPanel from '../components/ButtonPanel.svelte';
     import Background from '../components/Background.svelte';
     import ConfigGroup from '../components/ConfigGroup.svelte';
-    import { config } from '../stores/state';
-    import { resetConfigFromServer, changeHorizontalMultiplier, changeVerticalMultiplier, changeAcogHorizontalMultiplier, changeAcogVerticalMultiplier, changeScrollWheelWeaponSwap } from '../lib/api';
     import StatField from '../components/StatField.svelte';
+    import { config } from '../stores/state';
+    import type { KeybindConfigOption } from '../lib/types';
+    import { 
+        resetConfigFromServer, 
+        changeHorizontalMultiplier, 
+        changeVerticalMultiplier, 
+        changeAcogHorizontalMultiplier, 
+        changeAcogVerticalMultiplier, 
+        changeScrollWheelWeaponSwap 
+    } from '../lib/api';
 	import { open } from '@tauri-apps/plugin-shell';
 
-    let keybindConfigOptions: any[] = [
-        { label: 'Primary Weapon', description: 'Switches to primary weapon', type: 'char', key: 'primary_weapon', value: $config.keybinds.primary_weapon },
-        { label: 'Secondary Weapon', description: 'Switches to secondary weapon', type: 'char', key: 'secondary_weapon', value: $config.keybinds.secondary_weapon },
-        { label: 'Alternative Fire', description: 'Bind your shoot key to this in-game for autofire to work', type: 'char', key: 'alternative_fire', value: $config.keybinds.alternative_fire }
+    // Reactive configuration options
+    let keybindConfigOptions: KeybindConfigOption[];
+    $: keybindConfigOptions = [
+        { 
+            label: 'Primary Weapon', 
+            description: 'Switches to primary weapon', 
+            type: 'char', 
+            key: 'primary_weapon', 
+            value: $config.keybinds.primary_weapon 
+        },
+        { 
+            label: 'Secondary Weapon', 
+            description: 'Switches to secondary weapon', 
+            type: 'char', 
+            key: 'secondary_weapon', 
+            value: $config.keybinds.secondary_weapon 
+        },
+        { 
+            label: 'Alternative Fire', 
+            description: 'Bind your shoot key to this in-game for autofire to work', 
+            type: 'char', 
+            key: 'alternative_fire', 
+            value: $config.keybinds.alternative_fire 
+        }
     ];
 
+    // Component state
     let isResetting = false;
     let resetConfirmVisible = false;
 
-    async function handleResetConfig() {
+    // Event handlers
+    const handleResetConfig = async () => {
         if (!resetConfirmVisible) {
             resetConfirmVisible = true;
             return;
         }
 
-        isResetting = true;
-        resetConfirmVisible = false;
-        
-        await resetConfigFromServer();
+        try {
+            isResetting = true;
+            resetConfirmVisible = false;
+            await resetConfigFromServer();
+        } catch (error) {
+            console.error('Failed to reset config:', error);
+        } finally {
+            isResetting = false;
+        }
+    };
 
-		isResetting = false;
-    }
-
-    function cancelReset() {
+    const handleCancelReset = () => {
         resetConfirmVisible = false;
-    }
+    };
+
+    const handleScrollWheelToggle = (event: Event) => {
+        const target = event.target as HTMLInputElement;
+        changeScrollWheelWeaponSwap(target.checked);
+    };
+
+    const handleOpenDiscord = () => {
+        open("https://discord.gg/pulldown");
+    };
 </script>
 
 <Background />
 <main class="container">
     <Titlebar />
+	<br>
 
     <div class="main-layout">
         <!-- Loadouts -->
-        <div class="left-column card">
+        <div class="left-column card scrollable">
             <h2>Configuration Options</h2>
             <ConfigGroup configOptions={keybindConfigOptions} label="Keybinds" />
             
@@ -81,11 +124,13 @@
                         <input 
                             type="checkbox" 
                             bind:checked={$config.mouse_config.scroll_wheel_weapon_swap}
-                            on:change={(e) => changeScrollWheelWeaponSwap((e.target as HTMLInputElement).checked)}
+                            on:change={handleScrollWheelToggle}
                         />
                         <span class="checkbox-text">Enable Scroll Wheel Weapon Swap</span>
                     </label>
-                    <p class="checkbox-description">Allow mouse wheel to cycle between primary and secondary weapons</p>
+                    <p class="checkbox-description">
+                        Allow mouse wheel to cycle between primary and secondary weapons
+                    </p>
                 </div>
             </div>
             
@@ -97,16 +142,32 @@
                 
                 {#if resetConfirmVisible}
                     <div class="reset-confirm">
-                        <p class="warning-text">⚠️ This will reload all game data from the server. Your keybinds and mouse settings will be preserved.</p>
+                        <p class="warning-text">
+                            ⚠️ This will reload all game data from the server. Your keybinds and mouse settings will be preserved.
+                        </p>
                         <div class="reset-buttons">
-                            <button class="reset-btn danger" on:click={handleResetConfig} disabled={isResetting}>
+                            <button 
+                                class="reset-btn danger" 
+                                on:click={handleResetConfig} 
+                                disabled={isResetting}
+                            >
                                 {isResetting ? 'Reloading...' : 'Yes, Reload Game Data'}
                             </button>
-                            <button class="reset-btn cancel" on:click={cancelReset} disabled={isResetting}>Cancel</button>
+                            <button 
+                                class="reset-btn cancel" 
+                                on:click={handleCancelReset} 
+                                disabled={isResetting}
+                            >
+                                Cancel
+                            </button>
                         </div>
                     </div>
                 {:else}
-                    <button class="reset-btn primary" on:click={handleResetConfig} disabled={isResetting}>
+                    <button 
+                        class="reset-btn primary" 
+                        on:click={handleResetConfig} 
+                        disabled={isResetting}
+                    >
                         {isResetting ? 'Reloading Game Data...' : 'Reload Game Data'}
                     </button>
                 {/if}
@@ -115,13 +176,17 @@
 
         <!-- Active Loadout -->
         <div class="right-column">	
-            <div class="card upper-right-card">
+            <div class="card upper-right-card scrollable">
                 <h3>Settings</h3>
                 <p>
                     Manage your settings and preferences.
                     <br>
                     <br>
-                    Need help? Reach out to JPD staff in the <button class="link-button" on:click={() => open("https://discord.gg/pulldown")}>Discord</button> and open a support ticket - we're here to help you play best.
+                    Need help? Reach out to JPD staff in the 
+                    <button class="link-button" on:click={handleOpenDiscord}>
+                        Discord
+                    </button> 
+                    and open a support ticket - we're here to help you play best.
                 </p>
 				<div class="username">
 					Maintained by <b>@hiibolt</b> with &lt;3
@@ -134,109 +199,23 @@
 </main>
 
 <style>
-:root {
-  --fg: #222;
-  --card-bg: rgba(255, 255, 255, 0.8);
-  --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-  --accent: #bf0f70;
-  --shooting: #e53935;
-  --not-shooting: #333;
-  backdrop-filter: blur(20px);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fg: #f6f6f6;
-    --card-bg: rgba(30, 30, 30, 0.8);
-    --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-  }
-}
-
-.link-button {
-  align-items: normal;
-  border-style: none;
-  box-sizing: content-box;
-  cursor: pointer;
-  display: inline;
-  font: inherit;
-  height: auto;
-  padding: 0;
-  perspective-origin: 0 0;
-  text-align: start;
-  transform-origin: 0 0;
-  width: auto;
-  background: none;
-  border: none;
-  color: var(--accent);
-}
-
-.username {
-	font-size: 0.85em;
-	opacity: 0.75;
-}
-
-main.container {
-  color: var(--fg);
-  font-family: Tahoma, sans-serif;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: transparent; /* No background - acrylic look */
-}
-
-.main-layout {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 1rem;
-  padding: 1rem;
-  flex: 1;
-  height: calc(100vh - 80px); /* titlebar + banner space */
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
 .left-column {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 0.75rem;
-  overflow-y: auto;
-  padding: 0.5rem;
   text-align: center;
-}
-
-.right-column {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  gap: 1rem;
 }
 
 .upper-right-card {
-  flex: 9;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
   text-align: center;
 }
+
 .upper-right-card p {
   margin: 0.5rem 0;
   line-height: 1.5;
   font-weight: 500;
 }
 
-.card {
-  background-color: var(--card-bg);
-  border-radius: 10px;
-  box-shadow: var(--card-shadow);
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-h3 {
-  margin-top: 0;
+.username {
+  font-size: 0.85em;
+  opacity: 0.75;
 }
 
 .reset-config-section {
@@ -365,43 +344,6 @@ h3 {
   opacity: 0.7;
   margin: 0.5rem 0 0 0;
   line-height: 1.4;
-}
-
-/* Custom scrollbar styling for left column */
-.left-column::-webkit-scrollbar {
-  width: 8px;
-}
-
-.left-column::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-.left-column::-webkit-scrollbar-thumb {
-  background: var(--accent, var(--accent));
-  border-radius: 4px;
-  opacity: 0.7;
-}
-
-.left-column::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
-  opacity: 1;
-}
-
-/* Firefox scrollbar styling */
-.left-column {
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent, var(--accent)) rgba(255, 255, 255, 0.1);
-}
-
-@media (prefers-color-scheme: dark) {
-  .left-column::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-  }
-  
-  .left-column {
-    scrollbar-color: var(--accent, var(--accent)) rgba(255, 255, 255, 0.05);
-  }
 }
 </style>
 
