@@ -4,7 +4,7 @@
     export let currentPage = 'home';
 </script>
 
-<div class="account-panel card">
+<div class="account-panel">
     <div class="username">
         Product of <b>JPD</b>
     </div>

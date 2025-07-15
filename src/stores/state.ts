@@ -14,9 +14,13 @@ type MouseConfig = {
     acog_vertical_multiplier: number;
     scroll_wheel_weapon_swap: boolean;
 };
+type ThemeConfig = {
+    accent_color: string;
+};
 export type GlobalConfig = {
     keybinds: KeybindConfig;
     mouse_config: MouseConfig;
+    theme_config: ThemeConfig;
 };
 
 export type Game = {
@@ -98,6 +102,9 @@ export const config = writable<GlobalConfig>({
         acog_horizontal_multiplier: 2.5,
         acog_vertical_multiplier: 2.5,
         scroll_wheel_weapon_swap: true,
+    },
+    theme_config: {
+        accent_color: '#bf0f70', // Default accent color
     },
 });
 export const current_game_index = writable(0);

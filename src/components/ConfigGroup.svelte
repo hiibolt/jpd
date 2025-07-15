@@ -23,6 +23,10 @@
         max-width: 400px;
         margin: 16px auto;
     }
+    .config-group h3 {
+        color: var(--accent);
+        margin-bottom: 20px;
+    }
 </style>
 
 <div class="config-group">

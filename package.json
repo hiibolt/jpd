@@ -15,6 +15,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-shell": "^2.3.0",
     "@tauri-apps/plugin-updater": "~2",
     "flowbite": "^3.1.2",
     "flowbite-svelte": "^1.7.1",

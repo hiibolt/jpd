@@ -29,6 +29,7 @@ parking_lot = { version = "0.12", features = ["arc_lock"] }
 tauri-plugin-fs = "2"
 reqwest = { version = "0.12", features = ["json"] }
 futures = "0.3"
+tauri-plugin-shell = "2.3.0"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
