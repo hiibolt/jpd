@@ -5,7 +5,6 @@ mod types;
 use parking_lot::{Mutex, RwLock};
 use tauri::{ipc::Channel, App, Builder, Manager};
 use tauri_plugin_updater::UpdaterExt;
-use window_vibrancy::apply_acrylic;
 use anyhow::{anyhow, Result};
 
 use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc}, collections::HashMap};
@@ -1035,13 +1034,6 @@ pub fn run() {
         ])
         .setup(|app| {
             let state = tauri::async_runtime::block_on(setup(app));
-            let window = app.get_webview_window("main").expect("Failed to get main window");
-
-            // Apply vibrancy effect on Windows
-            apply_acrylic(
-                &window,
-                Some((18, 18, 18, 125))
-            ).expect("Unsupported platform! 'apply_blur' is only supported on Windows");
 
             // Register the application state
             app.manage(state);
