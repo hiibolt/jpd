@@ -58,8 +58,14 @@
     input:focus {
         background-color: var(--card-bg);
     }
+    
+    input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--accent, #bf0f70);
+        cursor: pointer;
+    }
 </style>
-
 <div class="stat-field">
     <div class="label-container">
         <span class="label">{label}</span>
@@ -75,6 +81,12 @@
             type='text'
             maxlength="1"
             on:keydown|preventDefault={handleCharKeybindInput}
+        />
+    {:else if type === 'checkbox'}
+        <input
+            bind:checked={value}
+            type="checkbox"
+            on:change={() => onChange(value)}
         />
     {:else}
         <input

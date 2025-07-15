@@ -287,7 +287,7 @@
 
 main.container {
   color: var(--fg);
-  font-family: Inter, sans-serif;
+  font-family: Tahoma, sans-serif;
   height: 100vh;
   display: flex;
   flex-direction: column;
