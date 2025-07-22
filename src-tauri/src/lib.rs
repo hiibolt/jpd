@@ -12,7 +12,7 @@ use std::{path::PathBuf, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc
 use crate::{types::{KeyStatus, KeyStatusResponse, LoadedGames}, winapi::{main_recoil, get_hardware_identifier}};
 use crate::types::{AppEvent, AppState, Game, GlobalConfig, Weapon};
 
-const SERVER_BASE_URL: &'static str = "http://5.249.162.64:4777";
+const SERVER_BASE_URL: &'static str = "http://45.146.252.244:4777";
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
