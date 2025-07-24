@@ -1,6 +1,6 @@
 <script lang="ts">
-    import type { Weapon } from '../stores/state';
-    import WeaponStats from './WeaponStats.svelte';
+    import type { Weapon } from '../../stores/state';
+    import WeaponStats from '../WeaponStats.svelte';
 
     export let weaponId: string;
     export let active: boolean;
@@ -39,10 +39,11 @@
         border: 1px solid #ccc;
         padding: 0.75rem;
         border-radius: 6px;
-        transition: transform 0.2s, border 0.2s;
+        transition: transform 0.2s, border-color 0.2s, border-width 0.2s;
     }
     .weapon-card.active {
         transform: scale(1.05);
+        border-width: 5px;
         border-color: var(--accent);
     }
     .weapon-header {

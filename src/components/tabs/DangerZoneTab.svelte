@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { resetConfigFromServer } from '../lib/api';
+    import { resetConfigFromServer } from '../../lib/api';
 
     // Component state
     let isResetting = false;

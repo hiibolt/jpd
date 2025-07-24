@@ -205,7 +205,7 @@ export async function restartApplication() {
 
 export async function updateGridLayout(loadoutsPerRow: number) {
     try {
-        await invoke('update_grid_layout', {
+        await invoke('change_grid_layout', {
             loadoutsPerRow
         });
     } catch (error) {

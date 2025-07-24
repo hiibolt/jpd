@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { type Category, current_category_index, current_loadout_index } from "../stores/state";
-    import { changeLoadout, changeCategory } from "../lib/api";
+    import { type Category, current_category_index, current_loadout_index } from "../../stores/state";
+    import { changeLoadout, changeCategory } from "../../lib/api";
 
     import LoadoutCard from "./LoadoutCard.svelte";
 

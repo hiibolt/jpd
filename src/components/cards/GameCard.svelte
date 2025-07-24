@@ -1,9 +1,9 @@
 <script lang="ts">
     import CategoryCard from "./CategoryCard.svelte";
 
-    import { type Game, current_game_index } from "../stores/state";
+    import { type Game, current_game_index } from "../../stores/state";
     import { changeGame } from "$lib/api";
-    import GameKeyField from "./GameKeyField.svelte";
+    import GameKeyField from "../GameKeyField.svelte";
 
     export let game: Game;
     export let index: number;

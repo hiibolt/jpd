@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { Loadout } from "../stores/state";
+    import type { Loadout } from "../../stores/state";
 
     export let loadout: Loadout;
     export let onClick: () => void;

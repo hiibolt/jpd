@@ -1,7 +1,7 @@
 <script lang="ts">
     import Titlebar from '../components/Titlebar.svelte';
-    import GameCard from '../components/GameCard.svelte';
-    import WeaponCard from '../components/WeaponCard.svelte';
+    import GameCard from '../components/cards/GameCard.svelte';
+    import WeaponCard from '../components/cards/WeaponCard.svelte';
     import ButtonPanel from '../components/ButtonPanel.svelte';
     import Background from '../components/Background.svelte';
 
