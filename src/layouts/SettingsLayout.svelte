@@ -2,10 +2,10 @@
     import Titlebar from '../components/Titlebar.svelte';
     import ButtonPanel from '../components/ButtonPanel.svelte';
     import Background from '../components/Background.svelte';
-    import TabContainer from '../components/TabContainer.svelte';
-    import KeybindsTab from '../components/KeybindsTab.svelte';
-    import VisualsTab from '../components/VisualsTab.svelte';
-    import DangerZoneTab from '../components/DangerZoneTab.svelte';
+    import TabContainer from '../components/tabs/TabContainer.svelte';
+    import KeybindsTab from '../components/tabs/KeybindsTab.svelte';
+    import VisualsTab from '../components/tabs/VisualsTab.svelte';
+    import DangerZoneTab from '../components/tabs/DangerZoneTab.svelte';
 	import { open } from '@tauri-apps/plugin-shell';
 
     // Tab configuration

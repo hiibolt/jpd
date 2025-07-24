@@ -1,7 +1,7 @@
 <script lang="ts">
-    import ColorPicker from './ColorPicker.svelte';
-    import { config } from '../stores/state';
-    import { changeAccentColor } from '../lib/api';
+    import ColorPicker from '../ColorPicker.svelte';
+    import { config } from '../../stores/state';
+    import { changeAccentColor } from '../../lib/api';
 
     const handleAccentColorChange = (color: string) => {
         changeAccentColor(color);

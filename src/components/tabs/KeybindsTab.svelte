@@ -1,15 +1,15 @@
 <script lang="ts">
-    import ConfigGroup from './ConfigGroup.svelte';
-    import StatField from './StatField.svelte';
-    import { config } from '../stores/state';
-    import type { KeybindConfigOption } from '../lib/types';
+    import ConfigGroup from '../ConfigGroup.svelte';
+    import StatField from '../StatField.svelte';
+    import { config } from '../../stores/state';
+    import type { KeybindConfigOption } from '../../lib/types';
     import { 
         changeHorizontalMultiplier, 
         changeVerticalMultiplier, 
         changeAcogHorizontalMultiplier, 
         changeAcogVerticalMultiplier, 
         changeScrollWheelWeaponSwap 
-    } from '../lib/api';
+    } from '../../lib/api';
 
     // Reactive configuration options
     let keybindConfigOptions: KeybindConfigOption[];

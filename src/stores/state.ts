@@ -35,7 +35,8 @@ export type KeyStatus =
     | { type: 'Invalid'; key: string }
     | { type: 'Valid'; key: string; timestamp: number }
     | { type: 'Expired'; key: string; timestamp: number }
-    | { type: 'Banned'; key: string };
+    | { type: 'Banned'; key: string }
+    | { type: 'HWIDMismatch'; key: string };
 export type Category = {
     name: string;
     loadouts: Loadout[];
