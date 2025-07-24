@@ -160,7 +160,7 @@ export function changeSetting(setting: string, value: string | boolean | number)
         .catch((error) => handleError('Change to settings failed', error));
 }
 export async function setWeaponConfig ( weaponId: string, field: string, newValue: any ) {
-    invoke('set_weapon_config', { weaponId, field, newValue })
+    invoke('change_weapon_config', { weaponId, field, newValue })
         .then((new_games) => games.set(new_games as any))
         .catch((error) => handleError('Set weapon config failed', error));
 }
