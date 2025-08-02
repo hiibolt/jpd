@@ -1,4 +1,4 @@
-use crate::{SERVER_BASE_URL, load_games, types::{AppEvent, AppState, Game, GlobalConfig, KeyStatus, KeyStatusResponse, LoadedGames}, winapi::get_hardware_identifier};
+use crate::{SERVER_BASE_URL, load_games, merge_game_configs, types::{AppEvent, AppState, Game, GlobalConfig, KeyStatus, KeyStatusResponse, LoadedGames}, winapi::get_hardware_identifier};
 
 #[tauri::command]
 pub fn get_games(state: tauri::State<'_, AppState>) -> Vec<Game> {
@@ -83,9 +83,11 @@ pub async fn submit_game_key(
                     key: config.key.clone().unwrap_or_default(),
                     timestamp: *timestamp 
                 });
-                game.categories = config.categories.clone();
-                game.weapons = config.weapons.clone();
-                println!("Updated game '{}' with full configuration from server", game_name);
+                
+                // Use merge logic to preserve existing weapon configurations
+                merge_game_configs(game, config);
+                
+                println!("Updated game '{}' with configuration from server (preserving local changes)", game_name);
             },
             KeyStatusResponse::Invalid { key } => {
                 game.key_status = Some(KeyStatus::Invalid { key: key.clone() });

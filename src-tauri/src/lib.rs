@@ -114,7 +114,7 @@ fn load_local_games(games_dir_path: &PathBuf) -> Result<HashMap<String, Game>, S
     
     Ok(local_games)
 }
-fn merge_game_configs(local_game: &mut Game, remote_game: &Game) {
+pub fn merge_game_configs(local_game: &mut Game, remote_game: &Game) {
     // Only update if remote has valid data
     if let Some(remote_categories) = &remote_game.categories {
         if let Some(local_categories) = &mut local_game.categories {
