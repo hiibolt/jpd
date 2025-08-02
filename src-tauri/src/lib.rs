@@ -189,15 +189,7 @@ async fn load_games (
         },
         Err(e) => {
             eprintln!("Failed to fetch remote games list, using basic game info only: {}", e);
-            // If we can't connect, only provide basic game info (no local configs)
-            let basic_games: Vec<Game> = local_games.keys().map(|name| Game {
-                name: name.clone(),
-                key: None,
-                key_status: None,
-                categories: None,
-                weapons: None,
-            }).collect();
-            return Ok(LoadedGames { game_data: basic_games });
+            return Err(format!("Failed to fetch remote games list: {}", e));
         }
     };
 
