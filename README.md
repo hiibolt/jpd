@@ -1,10 +1,10 @@
-# clc-jpd
+# jpd
 
-CLC's Just Pull Down - An anti-recoil solution for configurable weapon management with dynamic loadout support.
+Just Pull Down - An anti-recoil solution for configurable weapon management with dynamic loadout support.
 
 ## Overview
 
-clc-jpd is a desktop application built with Tauri that provides automated recoil compensation for supported games. The application features a Svelte-based frontend with a custom UI for managing weapons, loadouts, and keybinds, backed by a Rust core that handles low-level input simulation and recoil pattern execution.
+jpd is a desktop application built with Tauri that provides automated recoil compensation for supported games. The application features a Svelte-based frontend with a custom UI for managing weapons, loadouts, and keybinds, backed by a Rust core that handles low-level input simulation and recoil pattern execution.
 
 ### Key Features
 
@@ -55,8 +55,8 @@ Pre-built releases are available at the [Release Repository](https://github.com/
 
 ```bash
 # Clone the repository
-git clone https://github.com/hiibolt/clc-jpd.git
-cd clc-jpd
+git clone https://github.com/hiibolt/jpd.git
+cd jpd
 
 # Install frontend dependencies
 npm install
@@ -108,27 +108,6 @@ The application stores configuration in a JSON format including:
 - Grid layout preferences
 
 Configuration is managed through the settings interface and persisted via Tauri's filesystem API.
-
-## Project Structure
-
-```
-clc-jpd/
-├── src/                    # Frontend source
-│   ├── components/         # Svelte components
-│   ├── layouts/           # Page layouts
-│   ├── lib/               # Utilities and helpers
-│   ├── routes/            # SvelteKit routes
-│   └── stores/            # State management
-├── src-tauri/             # Backend source
-│   ├── src/
-│   │   ├── lib.rs        # Main Tauri handlers
-│   │   ├── recoil.rs     # Recoil system
-│   │   ├── winapi.rs     # Windows API integration
-│   │   └── types.rs      # Data structures
-│   ├── capabilities/      # Tauri permissions
-│   └── icons/            # Application icons
-└── static/               # Static assets
-```
 
 ## License
 
