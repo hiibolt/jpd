@@ -21,7 +21,7 @@ use crate::{
 };
 use crate::types::{AppEvent, AppState, Game, GlobalConfig};
 
-pub const SERVER_BASE_URL: &'static str = "http://45.146.252.244:4777";
+pub const SERVER_BASE_URL: &'static str = "http://134.255.217.234:4777";
 
 fn get_weapon_id (
     state: &AppState,
